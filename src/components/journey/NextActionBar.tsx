@@ -28,8 +28,8 @@ export const NextActionBar: React.FC<NextActionBarProps> = ({
   secondaryAction,
 }) => {
   return (
-    <footer className="sticky bottom-0 z-30 w-full border-t border-stone-200 dark:border-stone-800 bg-white/95 dark:bg-stone-900/95 backdrop-blur-md px-4 sm:px-6 py-3 shadow-lg">
-      <div className="max-w-7xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-3">
+    <footer className="sticky bottom-0 z-30 w-full border-t border-[#E5E7E2] bg-[#FFFFFF]/95 backdrop-blur-md px-4 sm:px-6 py-2.5 shadow-xs">
+      <div className="max-w-4xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-3">
         {/* Back / secondary */}
         <div className="flex items-center gap-3 w-full sm:w-auto justify-between sm:justify-start">
           {canBack && onBack && (
@@ -37,9 +37,9 @@ export const NextActionBar: React.FC<NextActionBarProps> = ({
               type="button"
               onClick={onBack}
               disabled={isLoading}
-              className="inline-flex items-center gap-1.5 px-3 py-2 text-xs sm:text-sm font-medium text-stone-600 dark:text-stone-400 hover:text-stone-900 dark:hover:text-stone-100 rounded-lg hover:bg-stone-100 dark:hover:bg-stone-800 transition-colors disabled:opacity-50"
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-[#626862] hover:text-[#171A18] rounded-md hover:bg-[#F2F3EF] transition-colors disabled:opacity-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-[#174A3A]"
             >
-              <ArrowLeft className="w-4 h-4" />
+              <ArrowLeft className="w-3.5 h-3.5" />
               <span>{backLabel}</span>
             </button>
           )}
@@ -49,7 +49,7 @@ export const NextActionBar: React.FC<NextActionBarProps> = ({
               type="button"
               onClick={secondaryAction.onClick}
               disabled={isLoading}
-              className="text-xs text-stone-500 hover:text-stone-800 dark:hover:text-stone-200 underline underline-offset-4"
+              className="text-xs text-[#626862] hover:text-[#171A18] underline underline-offset-4 focus:outline-none focus-visible:ring-1 focus-visible:ring-[#174A3A]"
             >
               {secondaryAction.label}
             </button>
@@ -58,7 +58,7 @@ export const NextActionBar: React.FC<NextActionBarProps> = ({
 
         {/* Center orientation microcopy */}
         {orientationText && (
-          <p className="text-xs text-stone-500 dark:text-stone-400 text-center hidden md:block max-w-xl truncate">
+          <p className="text-xs text-[#8A908A] text-center hidden md:block max-w-md truncate">
             {orientationText}
           </p>
         )}
@@ -69,17 +69,17 @@ export const NextActionBar: React.FC<NextActionBarProps> = ({
             type="button"
             onClick={onNext}
             disabled={!canNext || isLoading}
-            className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-lg text-sm font-medium text-white bg-stone-900 hover:bg-stone-800 dark:bg-stone-100 dark:text-stone-950 dark:hover:bg-white shadow-sm transition-all focus:outline-none focus-visible:ring-2 focus-visible:ring-amber-500 disabled:opacity-40 disabled:cursor-not-allowed group active:scale-[0.99]"
+            className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-4 py-2 rounded-lg text-xs font-semibold text-white bg-[#174A3A] hover:bg-[#10372C] shadow-xs transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-[#174A3A] disabled:opacity-40 disabled:cursor-not-allowed"
           >
             {isLoading ? (
               <>
-                <Loader2 className="w-4 h-4 animate-spin text-amber-400" />
+                <Loader2 className="w-3.5 h-3.5 animate-spin" />
                 <span>Processing...</span>
               </>
             ) : (
               <>
                 <span>{nextLabel}</span>
-                <ArrowRight className="w-4 h-4 transition-transform group-hover:translate-x-0.5" />
+                <ArrowRight className="w-3.5 h-3.5" />
               </>
             )}
           </button>

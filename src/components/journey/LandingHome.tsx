@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { Plus, Play, Clock, ArrowRight, ShieldCheck, HelpCircle, AlertCircle, FileText, CheckCircle2 } from 'lucide-react';
+import { Plus, Play, ArrowRight, ChevronRight, Layers, ShieldCheck, Cpu } from 'lucide-react';
 import { listStoredDecisions, type StoredDecisions } from '../../services/decisionPersistence';
 import type { DecisionListing } from '../../../server/decision/decision';
 
@@ -7,12 +7,14 @@ interface LandingHomeProps {
   onStartNewDecision: () => void;
   onStartDemoDecision: () => void;
   onOpenStoredDecision: (id: string) => void;
+  onOpenDecisionsList?: () => void;
 }
 
 export const LandingHome: React.FC<LandingHomeProps> = ({
   onStartNewDecision,
   onStartDemoDecision,
   onOpenStoredDecision,
+  onOpenDecisionsList,
 }) => {
   const [decisionsState, setDecisionsState] = useState<StoredDecisions | { status: 'loading' }>({
     status: 'loading',
@@ -31,166 +33,368 @@ export const LandingHome: React.FC<LandingHomeProps> = ({
   const listings: DecisionListing[] =
     decisionsState.status === 'loaded' ? decisionsState.listings : [];
 
+  const formatUpdatedDate = (iso: string) => {
+    const d = new Date(iso);
+    if (Number.isNaN(d.getTime())) return iso;
+    return d.toLocaleDateString(undefined, {
+      month: 'short',
+      day: 'numeric',
+    });
+  };
+
+  const getStateBadge = (state: DecisionListing['state']) => {
+    switch (state) {
+      case 'provisional':
+        return (
+          <span className="inline-flex items-center text-[11px] font-medium text-[#174A3A]">
+            Provisional
+          </span>
+        );
+      case 'awaiting_evidence':
+        return (
+          <span className="inline-flex items-center text-[11px] font-medium text-[#A66B16]">
+            Awaiting evidence
+          </span>
+        );
+      case 'waiting_on_a_check':
+        return (
+          <span className="inline-flex items-center text-[11px] font-medium text-[#626862]">
+            Waiting on check
+          </span>
+        );
+      case 'failed':
+        return (
+          <span className="inline-flex items-center text-[11px] font-medium text-[#B54747]">
+            Failed
+          </span>
+        );
+      default:
+        return (
+          <span className="inline-flex items-center text-[11px] font-medium text-[#626862]">
+            Active
+          </span>
+        );
+    }
+  };
+
   return (
-    <div className="max-w-5xl mx-auto px-4 sm:px-6 py-8 sm:py-12">
-      {/* Hero Section */}
-      <section className="text-center space-y-4 mb-12 sm:mb-16">
-        <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full text-xs font-mono font-medium bg-stone-200/60 dark:bg-stone-800 text-stone-700 dark:text-stone-300 mb-2">
-          <span>Product Jury 2.0</span>
-          <span className="text-stone-400">·</span>
-          <span>Guided Decision Defense</span>
+    <div className="max-w-4xl mx-auto py-10 sm:py-16 px-4 sm:px-6 space-y-16">
+      {/* SECTION 1 — HERO */}
+      <section className="space-y-6 pt-2">
+        <div className="space-y-3">
+          <div className="text-[11px] font-mono uppercase tracking-widest text-[#174A3A] font-semibold">
+            NIRNIK · AI DECISION WORKSPACE
+          </div>
+          <h1
+            className="text-3xl sm:text-4xl md:text-5xl font-normal text-[#171A18] tracking-tight leading-[1.12]"
+            style={{ fontFamily: "'Instrument Serif', Georgia, serif" }}
+          >
+            Challenge the thinking.<br />
+            <span className="italic text-[#174A3A]">Defend the decision.</span>
+          </h1>
         </div>
 
-        <h1 className="text-3xl sm:text-5xl lg:text-6xl font-serif tracking-tight text-stone-900 dark:text-stone-50 font-normal leading-[1.15]">
-          Challenge the product.{' '}
-          <span className="italic block sm:inline font-normal text-stone-600 dark:text-stone-300">
-            Defend the decision.
-          </span>
-        </h1>
-
-        <p className="max-w-2xl mx-auto text-base sm:text-lg text-stone-600 dark:text-stone-400 leading-relaxed font-sans">
-          A structured AI jury that tests your consequential product call against evidence,
-          hidden assumptions, and opposing specialist perspectives — keeping you as the final decision maker.
+        <p className="text-sm sm:text-base text-[#626862] leading-relaxed max-w-2xl">
+          Nirnik stress-tests consequential product decisions against evidence, assumptions, and opposing perspectives before you commit.
         </p>
 
-        {/* Primary Action Buttons */}
-        <div className="flex flex-col sm:flex-row items-center justify-center gap-3.5 pt-4">
+        <div className="pt-1 flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-4 text-xs font-mono text-[#8A908A] border-l-2 border-[#174A3A] pl-3 py-0.5">
+          <span className="text-[#171A18] font-medium">You make the call.</span>
+          <span className="hidden sm:inline text-[#D6D9D2]" aria-hidden="true">/</span>
+          <span>Nirnik makes the thinking harder.</span>
+        </div>
+
+        <div className="flex flex-wrap items-center gap-3 pt-3">
           <button
             type="button"
             onClick={onStartNewDecision}
-            className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-6 py-3.5 rounded-lg text-sm font-medium text-white bg-stone-900 hover:bg-stone-800 dark:bg-stone-100 dark:text-stone-950 dark:hover:bg-white shadow-md transition-all active:scale-[0.99] focus:outline-none focus-visible:ring-2 focus-visible:ring-amber-500"
+            className="inline-flex items-center gap-2 px-4 py-2.5 rounded-lg text-xs font-semibold text-white bg-[#174A3A] hover:bg-[#10372C] shadow-xs transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-[#174A3A] cursor-pointer"
           >
-            <Plus className="w-4 h-4 stroke-[2.5]" />
-            <span>New decision</span>
+            <Plus className="w-3.5 h-3.5 stroke-[2.5]" />
+            <span>+ New decision</span>
           </button>
 
           <button
             type="button"
             onClick={onStartDemoDecision}
-            className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-6 py-3.5 rounded-lg text-sm font-medium text-stone-800 dark:text-stone-200 bg-amber-500/10 hover:bg-amber-500/20 border border-amber-500/30 transition-all active:scale-[0.99] focus:outline-none focus-visible:ring-2 focus-visible:ring-amber-500"
+            className="inline-flex items-center gap-2 px-4 py-2.5 rounded-lg text-xs font-medium text-[#171A18] bg-[#FFFFFF] hover:bg-[#F2F3EF] border border-[#E5E7E2] transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-[#174A3A] cursor-pointer"
           >
-            <Play className="w-4 h-4 fill-amber-600 text-amber-600 dark:text-amber-400 dark:fill-amber-400" />
-            <span>Try a demo decision</span>
-            <span className="text-[11px] font-mono text-amber-700 dark:text-amber-300 ml-1">
-              (3 min)
-            </span>
+            <Play className="w-3 h-3 fill-[#174A3A] text-[#174A3A]" />
+            <span>▶ Try a 3-minute demo</span>
           </button>
         </div>
       </section>
 
-      {/* 5-Phase Journey Explainer Banner */}
-      <section className="mb-14 p-6 rounded-xl border border-stone-200/80 dark:border-stone-800/80 bg-white/60 dark:bg-stone-900/40 backdrop-blur-sm shadow-sm">
-        <h2 className="text-xs font-mono uppercase tracking-widest text-stone-500 mb-4 font-semibold">
-          The 5-Phase Decision Defense Workflow
+      {/* SECTION 2 — HOW NIRNIK WORKS */}
+      <section className="space-y-4 pt-4 border-t border-[#E5E7E2]">
+        <h2 className="text-xs font-mono uppercase tracking-wider text-[#8A908A]">
+          How Nirnik works
         </h2>
 
-        <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
-          <div className="p-3 rounded-lg bg-stone-50 dark:bg-stone-800/50 border border-stone-200/50 dark:border-stone-700/30">
-            <span className="text-[11px] font-mono font-bold text-amber-600 dark:text-amber-400">01</span>
-            <h3 className="text-xs font-semibold text-stone-900 dark:text-stone-100 mt-1">FRAME</h3>
-            <p className="text-[11px] text-stone-500 dark:text-stone-400 mt-0.5">Sharpen the consequential question</p>
+        {/* Desktop / Tablet progression flow */}
+        <div className="hidden md:grid grid-cols-6 gap-2 items-center bg-[#FFFFFF] border border-[#E5E7E2] rounded-xl p-4 text-center">
+          <div className="space-y-1">
+            <span className="text-[10px] font-mono text-[#8A908A] block">01</span>
+            <span className="text-xs font-medium text-[#171A18] block leading-tight">Your decision</span>
           </div>
-
-          <div className="p-3 rounded-lg bg-stone-50 dark:bg-stone-800/50 border border-stone-200/50 dark:border-stone-700/30">
-            <span className="text-[11px] font-mono font-bold text-amber-600 dark:text-amber-400">02</span>
-            <h3 className="text-xs font-semibold text-stone-900 dark:text-stone-100 mt-1">GROUND</h3>
-            <p className="text-[11px] text-stone-500 dark:text-stone-400 mt-0.5">Map claims & expose unknowns</p>
+          <div className="space-y-1 border-l border-[#E5E7E2] pl-2">
+            <span className="text-[10px] font-mono text-[#8A908A] block">02</span>
+            <span className="text-xs font-medium text-[#171A18] block leading-tight">Evidence + assumptions</span>
           </div>
-
-          <div className="p-3 rounded-lg bg-stone-50 dark:bg-stone-800/50 border border-stone-200/50 dark:border-stone-700/30">
-            <span className="text-[11px] font-mono font-bold text-amber-600 dark:text-amber-400">03</span>
-            <h3 className="text-xs font-semibold text-stone-900 dark:text-stone-100 mt-1">CHALLENGE</h3>
-            <p className="text-[11px] text-stone-500 dark:text-stone-400 mt-0.5">Specialist jury stress-tests & PM responds</p>
+          <div className="space-y-1 border-l border-[#E5E7E2] pl-2">
+            <span className="text-[10px] font-mono text-[#8A908A] block">03</span>
+            <span className="text-xs font-medium text-[#171A18] block leading-tight">Specialists challenge it</span>
           </div>
-
-          <div className="p-3 rounded-lg bg-stone-50 dark:bg-stone-800/50 border border-stone-200/50 dark:border-stone-700/30">
-            <span className="text-[11px] font-mono font-bold text-amber-600 dark:text-amber-400">04</span>
-            <h3 className="text-xs font-semibold text-stone-900 dark:text-stone-100 mt-1">DECIDE</h3>
-            <p className="text-[11px] text-stone-500 dark:text-stone-400 mt-0.5">Review synthesis & make the call</p>
+          <div className="space-y-1 border-l border-[#E5E7E2] pl-2">
+            <span className="text-[10px] font-mono text-[#8A908A] block">04</span>
+            <span className="text-xs font-medium text-[#171A18] block leading-tight">You respond</span>
           </div>
+          <div className="space-y-1 border-l border-[#E5E7E2] pl-2">
+            <span className="text-[10px] font-mono text-[#8A908A] block">05</span>
+            <span className="text-xs font-medium text-[#171A18] block leading-tight">You make the call</span>
+          </div>
+          <div className="space-y-1 border-l border-[#E5E7E2] pl-2">
+            <span className="text-[10px] font-mono text-[#8A908A] block">06</span>
+            <span className="text-xs font-medium text-[#174A3A] block leading-tight">Decision record</span>
+          </div>
+        </div>
 
-          <div className="p-3 rounded-lg bg-stone-50 dark:bg-stone-800/50 border border-stone-200/50 dark:border-stone-700/30 col-span-2 sm:col-span-1">
-            <span className="text-[11px] font-mono font-bold text-amber-600 dark:text-amber-400">05</span>
-            <h3 className="text-xs font-semibold text-stone-900 dark:text-stone-100 mt-1">RECORD</h3>
-            <p className="text-[11px] text-stone-500 dark:text-stone-400 mt-0.5">Preserve durable decision rationale</p>
+        {/* Mobile progression flow */}
+        <div className="md:hidden bg-[#FFFFFF] border border-[#E5E7E2] rounded-xl divide-y divide-[#E5E7E2] text-xs">
+          <div className="px-4 py-2.5 flex items-center justify-between">
+            <span className="text-[#626862]">01 Your decision</span>
+            <span className="text-[#8A908A]">↓</span>
+          </div>
+          <div className="px-4 py-2.5 flex items-center justify-between">
+            <span className="text-[#626862]">02 Evidence + assumptions</span>
+            <span className="text-[#8A908A]">↓</span>
+          </div>
+          <div className="px-4 py-2.5 flex items-center justify-between">
+            <span className="text-[#626862]">03 Specialists challenge it</span>
+            <span className="text-[#8A908A]">↓</span>
+          </div>
+          <div className="px-4 py-2.5 flex items-center justify-between">
+            <span className="text-[#626862]">04 You respond</span>
+            <span className="text-[#8A908A]">↓</span>
+          </div>
+          <div className="px-4 py-2.5 flex items-center justify-between">
+            <span className="text-[#626862]">05 You make the call</span>
+            <span className="text-[#8A908A]">↓</span>
+          </div>
+          <div className="px-4 py-2.5 flex items-center justify-between bg-[#F2F3EF]/50">
+            <span className="font-medium text-[#174A3A]">06 Decision record</span>
+            <span className="text-[10px] font-mono text-[#174A3A]">Durable</span>
           </div>
         </div>
       </section>
 
-      {/* Recent Decisions Section */}
-      <section className="space-y-4">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <Clock className="w-4 h-4 text-stone-500" />
-            <h2 className="text-sm font-semibold uppercase tracking-wider font-mono text-stone-700 dark:text-stone-300">
-              Decisions kept on this device
-            </h2>
+      {/* SECTION 3 — FIVE PHASES */}
+      <section className="space-y-4 pt-4 border-t border-[#E5E7E2]">
+        <h2 className="text-xs font-mono uppercase tracking-wider text-[#8A908A]">
+          Five Phases
+        </h2>
+
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3">
+          <div className="p-3.5 rounded-xl border border-[#E5E7E2] bg-[#FFFFFF] space-y-1.5">
+            <div className="text-[11px] font-mono font-semibold text-[#174A3A]">01 FRAME</div>
+            <div className="text-xs font-medium text-[#171A18]">Define the decision</div>
+            <p className="text-[11px] text-[#626862] leading-relaxed">
+              Focus the question into an unambiguous testable choice.
+            </p>
           </div>
-          {listings.length > 0 && (
-            <span className="text-xs font-mono text-stone-500">
-              {listings.length} decision{listings.length === 1 ? '' : 's'}
-            </span>
+
+          <div className="p-3.5 rounded-xl border border-[#E5E7E2] bg-[#FFFFFF] space-y-1.5">
+            <div className="text-[11px] font-mono font-semibold text-[#174A3A]">02 GROUND</div>
+            <div className="text-xs font-medium text-[#171A18]">Separate evidence from assumptions</div>
+            <p className="text-[11px] text-[#626862] leading-relaxed">
+              Assign epistemic status: facts, inferences, and unverified assumptions.
+            </p>
+          </div>
+
+          <div className="p-3.5 rounded-xl border border-[#E5E7E2] bg-[#FFFFFF] space-y-1.5">
+            <div className="text-[11px] font-mono font-semibold text-[#174A3A]">03 CHALLENGE</div>
+            <div className="text-xs font-medium text-[#171A18]">Expose weak points</div>
+            <p className="text-[11px] text-[#626862] leading-relaxed">
+              Adversarial perspectives probe vulnerabilities and articulate disagreements.
+            </p>
+          </div>
+
+          <div className="p-3.5 rounded-xl border border-[#E5E7E2] bg-[#FFFFFF] space-y-1.5">
+            <div className="text-[11px] font-mono font-semibold text-[#174A3A]">04 DECIDE</div>
+            <div className="text-xs font-medium text-[#171A18]">You make the final call</div>
+            <p className="text-[11px] text-[#626862] leading-relaxed">
+              Evaluate synthesis, review trade-offs, and commit your rationale.
+            </p>
+          </div>
+
+          <div className="p-3.5 rounded-xl border border-[#E5E7E2] bg-[#FFFFFF] space-y-1.5">
+            <div className="text-[11px] font-mono font-semibold text-[#174A3A]">05 RECORD</div>
+            <div className="text-xs font-medium text-[#171A18]">Preserve why you decided</div>
+            <p className="text-[11px] text-[#626862] leading-relaxed">
+              Audit-ready history, conditions that would change minds, and next actions.
+            </p>
+          </div>
+        </div>
+      </section>
+
+      {/* SECTION 4 — WHAT NIRNIK IS FOR */}
+      <section className="space-y-4 pt-4 border-t border-[#E5E7E2]">
+        <h2 className="text-xs font-mono uppercase tracking-wider text-[#8A908A]">
+          Built for consequential product decisions
+        </h2>
+
+        <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 text-xs">
+          <div className="p-3 rounded-lg border border-[#E5E7E2] bg-[#FFFFFF] space-y-0.5">
+            <span className="font-medium text-[#171A18] block">• Feature launches</span>
+            <span className="text-[11px] text-[#8A908A] block">Rollout criteria & holdouts</span>
+          </div>
+
+          <div className="p-3 rounded-lg border border-[#E5E7E2] bg-[#FFFFFF] space-y-0.5">
+            <span className="font-medium text-[#171A18] block">• Pricing changes</span>
+            <span className="text-[11px] text-[#8A908A] block">Packaging & churn exposure</span>
+          </div>
+
+          <div className="p-3 rounded-lg border border-[#E5E7E2] bg-[#FFFFFF] space-y-0.5">
+            <span className="font-medium text-[#171A18] block">• Market entry</span>
+            <span className="text-[11px] text-[#8A908A] block">Segment viability & positioning</span>
+          </div>
+
+          <div className="p-3 rounded-lg border border-[#E5E7E2] bg-[#FFFFFF] space-y-0.5">
+            <span className="font-medium text-[#171A18] block">• Product sunset</span>
+            <span className="text-[11px] text-[#8A908A] block">Deprecation costs & migration</span>
+          </div>
+
+          <div className="p-3 rounded-lg border border-[#E5E7E2] bg-[#FFFFFF] space-y-0.5">
+            <span className="font-medium text-[#171A18] block">• Platform migrations</span>
+            <span className="text-[11px] text-[#8A908A] block">Infrastructure risk & latency</span>
+          </div>
+
+          <div className="p-3 rounded-lg border border-[#E5E7E2] bg-[#FFFFFF] space-y-0.5">
+            <span className="font-medium text-[#171A18] block">• Major product bets</span>
+            <span className="text-[11px] text-[#8A908A] block">Irreversible technical investments</span>
+          </div>
+        </div>
+      </section>
+
+      {/* SECTION 5 — THREE CORE PRINCIPLES */}
+      <section className="space-y-4 pt-4 border-t border-[#E5E7E2]">
+        <h2 className="text-xs font-mono uppercase tracking-wider text-[#8A908A]">
+          Three Core Principles
+        </h2>
+
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+          <div className="p-4 rounded-xl border border-[#E5E7E2] bg-[#FFFFFF] space-y-1.5">
+            <div className="text-xs font-semibold text-[#174A3A] uppercase tracking-wide">
+              Evidence
+            </div>
+            <div className="text-sm font-medium text-[#171A18]">
+              What do we actually know?
+            </div>
+            <p className="text-xs text-[#626862] leading-relaxed">
+              Ground every claim in empirical telemetry and user research rather than untested narratives.
+            </p>
+          </div>
+
+          <div className="p-4 rounded-xl border border-[#E5E7E2] bg-[#FFFFFF] space-y-1.5">
+            <div className="text-xs font-semibold text-[#174A3A] uppercase tracking-wide">
+              Challenge
+            </div>
+            <div className="text-sm font-medium text-[#171A18]">
+              Where could our reasoning fail?
+            </div>
+            <p className="text-xs text-[#626862] leading-relaxed">
+              Stress-test fragile assumptions with adversarial perspectives before committing capital and team effort.
+            </p>
+          </div>
+
+          <div className="p-4 rounded-xl border border-[#E5E7E2] bg-[#FFFFFF] space-y-1.5">
+            <div className="text-xs font-semibold text-[#174A3A] uppercase tracking-wide">
+              Decision
+            </div>
+            <div className="text-sm font-medium text-[#171A18]">
+              What are we willing to commit to?
+            </div>
+            <p className="text-xs text-[#626862] leading-relaxed">
+              Own the trade-offs explicitly. Nirnik never makes the decision for you—accountability stays with the PM.
+            </p>
+          </div>
+        </div>
+
+        <p className="text-xs text-[#8A908A] font-mono leading-relaxed pt-1">
+          Nirnik is not an autonomous decision maker. It structures evidence, exposes disagreement, and holds the line on rigorous product thinking.
+        </p>
+      </section>
+
+      {/* SECTION 6 — RECENT DECISIONS */}
+      <section className="space-y-4 pt-4 border-t border-[#E5E7E2] pb-6">
+        <div className="flex items-center justify-between text-xs text-[#8A908A] font-medium">
+          <h2 className="text-xs font-mono uppercase tracking-wider text-[#8A908A]">
+            Recent decisions
+          </h2>
+          {listings.length > 0 && onOpenDecisionsList && (
+            <button
+              type="button"
+              onClick={onOpenDecisionsList}
+              className="text-[#626862] hover:text-[#171A18] underline underline-offset-4 focus:outline-none focus-visible:ring-1 focus-visible:ring-[#174A3A] cursor-pointer"
+            >
+              View all ({listings.length})
+            </button>
           )}
         </div>
 
         {decisionsState.status === 'loading' ? (
-          <div className="p-8 text-center text-sm text-stone-500 rounded-lg border border-stone-200 dark:border-stone-800">
-            Loading stored decisions...
+          <div className="py-8 text-center text-xs text-[#8A908A] bg-[#FFFFFF] border border-[#E5E7E2] rounded-xl font-mono">
+            Reading decisions kept on this device…
           </div>
         ) : listings.length === 0 ? (
-          <div className="p-8 text-center rounded-xl border border-dashed border-stone-300 dark:border-stone-800 bg-stone-50/50 dark:bg-stone-900/30">
-            <p className="text-sm text-stone-600 dark:text-stone-400">
-              No decisions stored yet. Start a new decision or try the demo.
+          <div className="py-10 px-5 text-center bg-[#FFFFFF] border border-[#E5E7E2] rounded-xl space-y-3">
+            <div className="text-sm font-medium text-[#171A18]">No decisions yet.</div>
+            <p className="text-xs text-[#626862] max-w-md mx-auto leading-relaxed">
+              Start with a realistic product decision and see Nirnik stress-test it.
             </p>
-            <div className="mt-4 flex justify-center gap-3">
+            <div className="pt-2">
               <button
                 type="button"
                 onClick={onStartDemoDecision}
-                className="text-xs text-amber-600 dark:text-amber-400 hover:underline font-medium"
+                className="inline-flex items-center gap-1.5 text-xs text-[#174A3A] hover:text-[#10372C] font-semibold group focus:outline-none focus-visible:ring-1 focus-visible:ring-[#174A3A] cursor-pointer"
               >
-                Try the Workout Recommendations Demo →
+                <span>Try a 3-minute demo</span>
+                <ArrowRight className="w-3.5 h-3.5 transition-transform group-hover:translate-x-0.5" />
               </button>
             </div>
           </div>
         ) : (
-          <div className="space-y-2">
-            {listings.map((item) => (
+          <div className="bg-[#FFFFFF] border border-[#E5E7E2] rounded-xl divide-y divide-[#E5E7E2] overflow-hidden">
+            {/* Table Header */}
+            <div className="grid grid-cols-12 px-4 py-2.5 text-[11px] font-mono text-[#8A908A] uppercase tracking-wider bg-[#F7F7F4]/60">
+              <div className="col-span-8">Decision</div>
+              <div className="col-span-2 text-right sm:text-left">Status</div>
+              <div className="col-span-2 text-right">Updated</div>
+            </div>
+
+            {/* Table Rows */}
+            {listings.slice(0, 6).map((item) => (
               <button
                 key={item.id}
                 type="button"
                 onClick={() => onOpenStoredDecision(item.id)}
-                className="w-full text-left p-4 rounded-xl border border-stone-200 dark:border-stone-800 bg-white dark:bg-stone-900 hover:border-stone-400 dark:hover:border-stone-700 hover:shadow-sm transition-all flex flex-col sm:flex-row sm:items-center justify-between gap-3 group"
+                className="w-full grid grid-cols-12 px-4 py-3.5 items-center text-left text-xs hover:bg-[#F2F3EF]/60 transition-colors group focus:outline-none focus-visible:ring-2 focus-visible:ring-[#174A3A] cursor-pointer"
               >
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-2 mb-1">
-                    {item.isSample && (
-                      <span className="px-1.5 py-0.5 rounded text-[10px] font-mono font-medium bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/20">
-                        DEMO
-                      </span>
-                    )}
-                    <span className="text-[11px] font-mono text-stone-500">
-                      {new Date(item.lastActivityAt).toLocaleDateString()}
-                      {item.openLoops > 0 ? ` · ${item.openLoops} open loop${item.openLoops === 1 ? '' : 's'}` : ''}
-                    </span>
-                  </div>
-                  <h3 className="text-sm font-medium text-stone-900 dark:text-stone-100 group-hover:text-amber-600 dark:group-hover:text-amber-400 transition-colors line-clamp-2">
+                <div className="col-span-8 pr-3 min-w-0">
+                  <div className="font-medium text-[#171A18] truncate group-hover:text-[#174A3A] transition-colors">
                     {item.decisionQuestion}
-                  </h3>
+                  </div>
+                  {item.isSample && (
+                    <span className="text-[10px] font-mono text-[#8A908A]">Sample decision</span>
+                  )}
                 </div>
 
-                <div className="flex items-center gap-3 shrink-0">
-                  <span
-                    className={`px-2 py-0.5 rounded text-[11px] font-mono font-medium ${
-                      item.state === 'failed'
-                        ? 'bg-rose-500/10 text-rose-600 dark:text-rose-400'
-                        : item.state === 'awaiting_evidence'
-                        ? 'bg-amber-500/10 text-amber-600 dark:text-amber-400'
-                        : 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400'
-                    }`}
-                  >
-                    {item.state.replace(/_/g, ' ')}
-                  </span>
-                  <ArrowRight className="w-4 h-4 text-stone-400 group-hover:translate-x-0.5 transition-transform" />
+                <div className="col-span-2 text-right sm:text-left">
+                  {getStateBadge(item.state)}
+                </div>
+
+                <div className="col-span-2 text-right text-[11px] text-[#8A908A] font-mono">
+                  {formatUpdatedDate(item.lastActivityAt)}
                 </div>
               </button>
             ))}

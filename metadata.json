@@ -1,6 +1,6 @@
 {
-  "name": "Product Jury",
-  "description": "AI-native product review and decision-support tool for Product Managers. Challenge the product. Defend the decision.",
+  "name": "Nirnik",
+  "description": "Nirnik is an AI-powered decision workspace that helps product teams stress-test consequential decisions using evidence, competing perspectives, and explicit uncertainty — while keeping the human as the final decision maker.",
   "requestFramePermissions": [],
   "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
 }

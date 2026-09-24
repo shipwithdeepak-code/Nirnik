@@ -47,7 +47,7 @@ export const STANDING_LIMITATIONS: readonly LimitationParagraph[] = Object.freez
     covers: ['what_it_can_know', 'what_it_cannot_know'],
     heading: 'What this can and cannot know',
     body:
-      'Product Jury has seen one frame of your product and none of your users. What it can know is ' +
+      'Nirnik has seen one frame of your product and none of your users. What it can know is ' +
       'what is visible in the screen you gave it, what you have told it, and what follows from those ' +
       'by stated inference — nothing about your market, your roadmap, your organisation, or what ' +
       'your competitors shipped last week, unless you tell it, in which case it is your claim and not ' +

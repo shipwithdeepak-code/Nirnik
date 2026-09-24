@@ -1,11 +1,33 @@
 @import "tailwindcss";
 
 @layer base {
-  body {
-    font-family: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  :root {
+    --bg-app: #F7F7F4;
+    --surface-app: #FFFFFF;
+    --border-app: #E5E7E2;
+    --text-primary: #171A18;
+    --text-secondary: #626862;
+    --text-muted: #8A908A;
+    --brand-green: #174A3A;
+    --brand-green-light: #DDEBE4;
+    --accent-green: #6FA889;
   }
+
+  body {
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    background-color: #F7F7F4;
+    color: #171A18;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+
+  .font-serif-hero {
+    font-family: 'Instrument Serif', 'DM Serif Display', Georgia, serif;
+  }
+
   code, kbd, samp, pre {
     font-family: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
   }
 }
+
 

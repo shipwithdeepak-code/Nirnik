@@ -36,7 +36,7 @@ export class AppErrorBoundary extends React.Component<Props, State> {
 
   componentDidCatch(error: Error, info: React.ErrorInfo): void {
     // SR-4: this goes to the console, not to the screen.
-    console.error('[Product Jury] interface error', error, info.componentStack);
+    console.error('[Nirnik] interface error', error, info.componentStack);
   }
 
   private handleReload = () => {

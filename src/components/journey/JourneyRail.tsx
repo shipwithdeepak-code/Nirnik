@@ -1,5 +1,5 @@
 import React from 'react';
-import { Check, ChevronRight } from 'lucide-react';
+import { Check } from 'lucide-react';
 import { JourneyPhase, JOURNEY_STEPS } from './types';
 
 interface JourneyRailProps {
@@ -11,6 +11,14 @@ interface JourneyRailProps {
 
 const PHASE_ORDER: JourneyPhase[] = ['FRAME', 'GROUND', 'CHALLENGE', 'DECIDE', 'RECORD'];
 
+/**
+ * Restrained, persistent horizontal stepper:
+ * 01 Frame — 02 Ground — 03 Challenge — 04 Decide — 05 Record
+ *
+ * Current step: brand green
+ * Completed: subtle check
+ * Future: muted
+ */
 export const JourneyRail: React.FC<JourneyRailProps> = ({
   currentPhase,
   completedPhases,
@@ -20,107 +28,63 @@ export const JourneyRail: React.FC<JourneyRailProps> = ({
   const currentIndex = PHASE_ORDER.indexOf(currentPhase);
 
   return (
-    <aside className="w-full lg:w-64 shrink-0 border-b lg:border-b-0 lg:border-r border-stone-200 dark:border-stone-800 bg-white/70 dark:bg-stone-900/40 p-4 lg:p-6 backdrop-blur-sm">
-      <div className="mb-4 hidden lg:block">
-        <div className="flex items-center justify-between">
-          <span className="text-[11px] font-mono tracking-widest text-stone-500 uppercase font-semibold">
-            Decision Journey
-          </span>
-          {isDemo && (
-            <span className="px-2 py-0.5 rounded text-[10px] font-mono font-medium bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/20">
-              DEMO
-            </span>
-          )}
-        </div>
-      </div>
-
-      {/* Desktop vertical stepper */}
-      <nav aria-label="Decision journey navigation" className="hidden lg:flex flex-col space-y-2">
+    <div className="w-full bg-[#FFFFFF] border-b border-[#E5E7E2] px-4 sm:px-8 py-3 select-none">
+      <div className="max-w-4xl mx-auto flex items-center justify-between sm:justify-center sm:gap-6 overflow-x-auto scrollbar-none">
         {JOURNEY_STEPS.map((step, idx) => {
           const isCurrent = step.id === currentPhase;
           const isCompleted = completedPhases.has(step.id);
           const isAccessible = isCompleted || idx <= currentIndex;
 
           return (
-            <button
-              key={step.id}
-              type="button"
-              disabled={!isAccessible}
-              onClick={() => isAccessible && onSelectPhase(step.id)}
-              className={`w-full text-left p-3 rounded-lg transition-all duration-150 flex items-start space-x-3 text-sm group ${
-                isCurrent
-                  ? 'bg-stone-900 text-white dark:bg-stone-100 dark:text-stone-900 shadow-sm font-medium'
-                  : isCompleted
-                  ? 'text-stone-700 dark:text-stone-300 hover:bg-stone-100 dark:hover:bg-stone-800/60'
-                  : 'text-stone-400 dark:text-stone-600 cursor-not-allowed opacity-75'
-              }`}
-            >
-              <div
-                className={`w-6 h-6 rounded-full flex items-center justify-center shrink-0 text-xs font-mono transition-colors ${
-                  isCurrent
-                    ? 'bg-amber-500 text-stone-950 font-bold'
+            <React.Fragment key={step.id}>
+              {/* Stepper Node Button */}
+              <button
+                type="button"
+                disabled={!isAccessible}
+                onClick={() => isAccessible && onSelectPhase(step.id)}
+                className={`group flex items-center gap-2 text-xs transition-colors rounded-sm focus:outline-none focus-visible:ring-2 focus-visible:ring-[#174A3A] shrink-0 py-1 ${
+                  !isAccessible
+                    ? 'cursor-not-allowed opacity-50 text-[#8A908A]'
+                    : isCurrent
+                    ? 'text-[#174A3A] font-semibold'
                     : isCompleted
-                    ? 'bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 font-semibold'
-                    : 'bg-stone-200 dark:bg-stone-800 text-stone-500'
+                    ? 'text-[#171A18] hover:text-[#174A3A] font-medium'
+                    : 'text-[#8A908A] hover:text-[#626862]'
                 }`}
               >
-                {isCompleted && !isCurrent ? (
-                  <Check className="w-3.5 h-3.5 stroke-[2.5]" />
-                ) : (
-                  step.number
-                )}
-              </div>
-              <div className="flex-1 min-w-0">
-                <div className="flex items-center justify-between">
-                  <span className="truncate">{step.name}</span>
-                  {isCurrent && (
-                    <ChevronRight className="w-4 h-4 shrink-0 opacity-70" />
-                  )}
-                </div>
-                <p
-                  className={`text-[11px] truncate mt-0.5 ${
+                {/* Node icon or number */}
+                <div
+                  className={`w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-mono transition-colors ${
                     isCurrent
-                      ? 'text-stone-300 dark:text-stone-600'
-                      : 'text-stone-500 dark:text-stone-500'
+                      ? 'bg-[#174A3A] text-white font-bold'
+                      : isCompleted
+                      ? 'bg-[#DDEBE4] text-[#174A3A]'
+                      : 'bg-[#F2F3EF] text-[#8A908A]'
                   }`}
                 >
-                  {step.shortDesc}
-                </p>
-              </div>
-            </button>
-          );
-        })}
-      </nav>
+                  {isCompleted && !isCurrent ? (
+                    <Check className="w-3 h-3 stroke-[2.5]" />
+                  ) : (
+                    step.number
+                  )}
+                </div>
 
-      {/* Mobile/Tablet compact horizontal stepper */}
-      <div className="flex lg:hidden items-center justify-between overflow-x-auto py-1 gap-1">
-        {JOURNEY_STEPS.map((step, idx) => {
-          const isCurrent = step.id === currentPhase;
-          const isCompleted = completedPhases.has(step.id);
-          const isAccessible = isCompleted || idx <= currentIndex;
+                {/* Step label */}
+                <span className="capitalize">{step.name.toLowerCase()}</span>
+              </button>
 
-          return (
-            <button
-              key={step.id}
-              type="button"
-              disabled={!isAccessible}
-              onClick={() => isAccessible && onSelectPhase(step.id)}
-              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium whitespace-nowrap transition-all ${
-                isCurrent
-                  ? 'bg-stone-900 text-white dark:bg-stone-100 dark:text-stone-900 shadow-sm'
-                  : isCompleted
-                  ? 'bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 border border-emerald-500/20'
-                  : 'text-stone-400 dark:text-stone-600 bg-stone-100 dark:bg-stone-800/40 opacity-60'
-              }`}
-            >
-              <span className="font-mono text-[10px]">
-                {isCompleted && !isCurrent ? '✓' : step.number}
-              </span>
-              <span>{step.name}</span>
-            </button>
+              {/* Separator dash */}
+              {idx < JOURNEY_STEPS.length - 1 && (
+                <div
+                  className={`hidden sm:block w-6 h-px transition-colors ${
+                    idx < currentIndex ? 'bg-[#174A3A]' : 'bg-[#E5E7E2]'
+                  }`}
+                />
+              )}
+            </React.Fragment>
           );
         })}
       </div>
-    </aside>
+    </div>
   );
 };

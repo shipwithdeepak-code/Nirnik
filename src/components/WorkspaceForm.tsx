@@ -1232,7 +1232,7 @@ export const WorkspaceForm: React.FC<WorkspaceFormProps> = ({
               </>
             ) : (
               <>
-                <span>Run Product Jury</span>
+                <span>Run Nirnik</span>
                 <ArrowRight className="w-4 h-4" />
               </>
             )}

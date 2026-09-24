@@ -1,5 +1,6 @@
-import React, { useCallback, useEffect, useState } from 'react';
-import { Header } from './components/Header';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
+import { Sidebar, NavItem } from './components/Sidebar';
+import { TopBar } from './components/TopBar';
 import { WorkspaceForm } from './components/WorkspaceForm';
 import { ResultsView } from './components/ResultsView';
 import { AnalysisLoadingModal } from './components/AnalysisLoadingModal';
@@ -10,11 +11,13 @@ import { PrivacyDisclosure } from './components/PrivacyDisclosure';
 import { FailureView, InsufficientView } from './components/RunOutcomeView';
 import { DecisionsList } from './components/DecisionsList';
 import { DecisionDetail } from './components/DecisionDetail';
+import { SettingsModal } from './components/SettingsModal';
+import { TemplatesView, DecisionTemplate } from './components/TemplatesView';
+import { LibraryView } from './components/LibraryView';
 
 import { JourneyPhase } from './components/journey/types';
 import { JourneyRail } from './components/journey/JourneyRail';
 import { NextActionBar } from './components/journey/NextActionBar';
-import { DecisionSnapshot } from './components/journey/DecisionSnapshot';
 import { LandingHome } from './components/journey/LandingHome';
 import { FrameStep } from './components/journey/FrameStep';
 import { GroundStep } from './components/journey/GroundStep';
@@ -33,12 +36,6 @@ import {
 import type { Claim } from './types/claims';
 import type { Decision } from './types/decision';
 import {
-  sampleProductContext,
-  sampleRawEvidence,
-  sampleProductReview,
-  sampleDecisionQuestion,
-} from './data/sampleReview';
-import {
   DEMO_DECISION_QUESTION,
   demoWorkoutContext,
   demoWorkoutRawEvidence,
@@ -51,7 +48,6 @@ import {
   type DemoUnknownItem,
   type DemoSpecialistDetail,
 } from './data/demoWorkoutDecision';
-import { reviewService } from './services/reviewService';
 import {
   listStoredDecisions,
   openStoredDecision,
@@ -59,6 +55,7 @@ import {
   type StoredDecision,
   type StoredDecisions,
 } from './services/decisionPersistence';
+import { reviewService } from './services/reviewService';
 import { navigate, useRoute } from './routing/route';
 import * as telemetry from './services/telemetryClient';
 import type { EditDistanceBand } from './integrity/decisionQuestion';
@@ -83,9 +80,12 @@ const emptyContext: ProductContext = {
 export default function App() {
   // Navigation & Routing
   const route = useRoute();
+  const [activeNav, setActiveNav] = useState<NavItem>('overview');
+  const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
+  const [isSettingsOpen, setIsSettingsOpen] = useState(false);
 
-  // App View Modes: 'home' (Landing) | 'journey' (5-Phase Defense) | 'live_result' (Failure/Insufficient/Legacy Verdict)
-  const [viewMode, setViewMode] = useState<'home' | 'journey'>('home');
+  // App View Modes: 'home' | 'journey' | 'results'
+  const [viewMode, setViewMode] = useState<'home' | 'journey' | 'results'>('home');
   const [currentPhase, setCurrentPhase] = useState<JourneyPhase>('FRAME');
   const [completedPhases, setCompletedPhases] = useState<Set<JourneyPhase>>(new Set());
 
@@ -132,37 +132,34 @@ export default function App() {
 
   // Ephemeral in-memory review list for session history drawer
   const [runResult, setRunResult] = useState<RunResult | null>(null);
+  const [keptDecisionId, setKeptDecisionId] = useState<string | null>(null);
   const [reviewHistory, setReviewHistory] = useState<ProductReview[]>([]);
   const [isRedTeamModalOpen, setIsRedTeamModalOpen] = useState(false);
   const [isHistoryDrawerOpen, setIsHistoryDrawerOpen] = useState(false);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [progressSteps, setProgressSteps] = useState<AnalysisProgressStep[]>([]);
   const [privacyGateOpen, setPrivacyGateOpen] = useState(false);
-  const pendingUploadRef = React.useRef<(() => void) | null>(null);
-  const [keptDecisionId, setKeptDecisionId] = useState<string | null>(null);
-
-  // Technical Deliberation Handler
-  const handleDeliberationComplete = async (result: RunResult) => {
-    setRunResult(result);
-    if ((result.kind === 'VERDICT' || result.kind === 'INSUFFICIENT') && result.decision) {
-      setKeptDecisionId(result.decision.id);
-      void persistDecision(result.decision);
-    }
-  };
+  const pendingUploadRef = useRef<(() => void) | null>(null);
 
   // Route synchronization
   useEffect(() => {
     let current = true;
     if (route.name === 'decisions') {
+      setActiveNav('decisions');
       setDecisionsState({ status: 'loading' });
       void listStoredDecisions().then((next) => {
         if (current) setDecisionsState(next);
       });
     } else if (route.name === 'decision') {
+      setActiveNav('decisions');
       setDecisionState({ status: 'loading' });
       void openStoredDecision(route.id).then((next) => {
         if (current) setDecisionState(next);
       });
+    } else {
+      if (activeNav === 'decisions') {
+        setActiveNav('overview');
+      }
     }
     return () => {
       current = false;
@@ -172,6 +169,7 @@ export default function App() {
   // Reset to brand new decision
   const handleStartNewDecision = () => {
     navigate({ name: 'run' });
+    setActiveNav('overview');
     setIsDemoMode(false);
     setContext(emptyContext);
     setRawEvidence('');
@@ -192,6 +190,7 @@ export default function App() {
   // Start Deterministic Demo Decision
   const handleStartDemoDecision = () => {
     navigate({ name: 'run' });
+    setActiveNav('overview');
     setIsDemoMode(true);
     setContext(demoWorkoutContext);
     setRawEvidence(demoWorkoutRawEvidence);
@@ -223,7 +222,55 @@ export default function App() {
   const handleExitDemo = () => {
     setIsDemoMode(false);
     setViewMode('home');
+    setActiveNav('overview');
     navigate({ name: 'run' });
+  };
+
+  // Template Selection
+  const handleSelectTemplate = (template: DecisionTemplate) => {
+    navigate({ name: 'run' });
+    setActiveNav('overview');
+    setIsDemoMode(false);
+    setContext({
+      ...emptyContext,
+      ...template.context,
+    });
+    setDecisionQuestion(template.decisionQuestion);
+    setQuestionRationale(template.description);
+    setIsQuestionConfirmed(true);
+    setClaims(demoWorkoutClaims);
+    setUnknowns(demoWorkoutUnknowns);
+    setSpecialists(demoWorkoutSpecialists);
+    setCompletedPhases(new Set());
+    setCurrentPhase('FRAME');
+    setViewMode('journey');
+    setDecisionId(telemetry.mintDecisionId());
+  };
+
+  // Pipeline Execution
+  const handleRunReview = async () => {
+    setIsAnalyzing(true);
+    try {
+      const result = await reviewService.runReview(
+        {
+          context,
+          decisionQuestion: decisionQuestion || '',
+          rawEvidence,
+        },
+        setProgressSteps
+      );
+      setRunResult(result);
+      if (result.kind === 'VERDICT') {
+        setKeptDecisionId(result.decision.id);
+        void persistDecision(result.decision);
+        setReviewHistory((prev) => [result.review, ...prev]);
+        setViewMode('results');
+      }
+    } catch (err) {
+      console.error('Review execution error:', err);
+    } finally {
+      setIsAnalyzing(false);
+    }
   };
 
   // Privacy Upload Handler
@@ -254,14 +301,13 @@ export default function App() {
     setIsQuestionConfirmed(true);
     telemetry.emit('question_confirmed', { decisionId, editDistanceBand: band });
 
-    // Populate claims if empty
     if (claims.length === 0) {
-      if (isDemoMode || !rawEvidence) {
-        setClaims(demoWorkoutClaims);
-        setUnknowns(demoWorkoutUnknowns);
-        setSpecialists(demoWorkoutSpecialists);
-      }
+      setClaims(demoWorkoutClaims);
+      setUnknowns(demoWorkoutUnknowns);
+      setSpecialists(demoWorkoutSpecialists);
     }
+    markPhaseCompleted('FRAME');
+    handleGoToPhase('GROUND');
   };
 
   // Mark phase complete & advance
@@ -280,9 +326,10 @@ export default function App() {
     if (currentPhase === 'FRAME') {
       if (!isQuestionConfirmed && decisionQuestion) {
         handleConfirmDecisionQuestion(decisionQuestion, 'unedited');
+      } else {
+        markPhaseCompleted('FRAME');
+        handleGoToPhase('GROUND');
       }
-      markPhaseCompleted('FRAME');
-      handleGoToPhase('GROUND');
     } else if (currentPhase === 'GROUND') {
       markPhaseCompleted('GROUND');
       handleGoToPhase('CHALLENGE');
@@ -290,9 +337,7 @@ export default function App() {
       markPhaseCompleted('CHALLENGE');
       handleGoToPhase('DECIDE');
     } else if (currentPhase === 'DECIDE') {
-      // Save decision to IndexedDB
       const decisionToSave = buildDemoCanonicalDecision();
-      // Update with PM choice and rationale
       decisionToSave.decisionQuestion = decisionQuestion || DEMO_DECISION_QUESTION;
       if (decisionToSave.versions[0]?.verdict) {
         decisionToSave.versions[0].verdict.executiveSummary = finalRationale;
@@ -334,6 +379,7 @@ export default function App() {
     telemetry.discardQueued();
     setDecisionId(telemetry.mintDecisionId());
     setViewMode('home');
+    setActiveNav('overview');
     navigate({ name: 'run' });
   };
 
@@ -342,33 +388,31 @@ export default function App() {
     switch (currentPhase) {
       case 'FRAME':
         return {
-          label: isQuestionConfirmed
-            ? 'Review the Evidence Foundation →'
-            : 'Confirm Decision Question →',
-          orientation: 'Formulate the consequential product call and make sure the question is sharp.',
+          label: 'Continue to Grounding →',
+          orientation: 'Review what empirical facts and assumptions this decision depends on.',
           canNext: Boolean(decisionQuestion && decisionQuestion.trim().length > 3),
         };
       case 'GROUND':
         return {
-          label: 'Enter the Specialist Jury Room →',
-          orientation: 'Review what the Jury actually knows before they challenge your decision.',
+          label: 'Continue to Specialist Challenge →',
+          orientation: 'See how the specialist panel stress-tests the decision spine.',
           canNext: true,
         };
       case 'CHALLENGE':
         return {
-          label: 'Review Jury Synthesis →',
-          orientation: 'Examine where the Jury disagrees and record your challenge response.',
+          label: 'Continue to Synthesis →',
+          orientation: 'Your PM response feeds directly into the final decision synthesis.',
           canNext: Boolean(pmResponseText && pmResponseText.trim().length > 3),
         };
       case 'DECIDE':
         return {
           label: 'Save Decision & Rationale →',
-          orientation: 'Review the panel synthesis and make the definitive PM product call.',
+          orientation: 'You make the definitive product call with full provenance.',
           canNext: Boolean(finalRationale && finalRationale.trim().length > 3),
         };
       case 'RECORD':
         return {
-          label: 'View in Stored Decisions Archive →',
+          label: 'View in Stored Decisions →',
           orientation: 'Decision record is immutable and saved locally on this device.',
           canNext: true,
         };
@@ -377,69 +421,184 @@ export default function App() {
 
   const nextConfig = getNextBarConfig();
 
-  return (
-    <div className="min-h-screen flex flex-col bg-stone-100/60 dark:bg-stone-950 text-stone-900 dark:text-stone-100 font-sans antialiased selection:bg-amber-500/20 selection:text-amber-900">
-      <Header
-        onHome={() => {
+  // Dynamic breadcrumb definition
+  const getBreadcrumb = () => {
+    if (route.name === 'decision') {
+      return {
+        section: 'Decisions',
+        item:
+          decisionState.status === 'loaded'
+            ? decisionState.decision.decisionQuestion
+            : 'Decision detail',
+        onSectionClick: () => navigate({ name: 'decisions' }),
+      };
+    }
+    if (route.name === 'decisions') {
+      return {
+        section: 'Workspace',
+        item: 'Decisions',
+      };
+    }
+    if (activeNav === 'templates') {
+      return {
+        section: 'Workspace',
+        item: 'Templates',
+        onSectionClick: () => {
+          setActiveNav('overview');
           setViewMode('home');
-          navigate({ name: 'run' });
+        },
+      };
+    }
+    if (activeNav === 'evidence') {
+      return {
+        section: 'Library',
+        item: 'Evidence',
+        onSectionClick: () => {
+          setActiveNav('overview');
+          setViewMode('home');
+        },
+      };
+    }
+    if (activeNav === 'claims') {
+      return {
+        section: 'Library',
+        item: 'Claims',
+        onSectionClick: () => {
+          setActiveNav('overview');
+          setViewMode('home');
+        },
+      };
+    }
+    if (viewMode === 'journey') {
+      return {
+        section: 'Decisions',
+        item: decisionQuestion || 'New decision',
+        onSectionClick: () => {
+          setViewMode('home');
+          setActiveNav('overview');
+        },
+      };
+    }
+    return {
+      section: 'Workspace',
+      item: 'Overview',
+    };
+  };
+
+  const breadcrumb = getBreadcrumb();
+
+  return (
+    <div className="h-screen w-screen flex overflow-hidden bg-[#F7F7F4] text-[#171A18] font-sans antialiased selection:bg-[#DDEBE4] selection:text-[#174A3A]">
+      {/* SaaS Application Sidebar */}
+      <Sidebar
+        currentNav={activeNav}
+        onSelectNav={(nav) => {
+          if (nav === 'settings') {
+            setIsSettingsOpen(true);
+            return;
+          }
+          setActiveNav(nav);
+          if (nav === 'decisions') {
+            navigate({ name: 'decisions' });
+          } else {
+            navigate({ name: 'run' });
+            if (nav === 'overview') {
+              setViewMode('home');
+            }
+          }
         }}
-        onNewReview={handleStartNewDecision}
-        onOpenDecisions={() => navigate({ name: 'decisions' })}
-        decisionsActive={route.name === 'decisions'}
-        isDemo={isDemoMode}
-        onExitDemo={handleExitDemo}
-        onOpenHistory={() => setIsHistoryDrawerOpen(true)}
+        isCollapsed={isSidebarCollapsed}
+        onToggleCollapse={() => setIsSidebarCollapsed(!isSidebarCollapsed)}
+        onNewDecision={handleStartNewDecision}
+        onStartDemo={handleStartDemoDecision}
+        isDemoActive={isDemoMode}
       />
 
-      <main className="flex-1 flex flex-col">
-        {/* Route: Stored Decisions List */}
-        {route.name === 'decisions' ? (
-          <DecisionsList
-            state={decisionsState}
-            onOpen={(id) => {
-              telemetry.emit('decision_opened', { decisionId });
-              navigate({ name: 'decision', id });
-            }}
-            onStartNew={handleStartNewDecision}
-          />
-        ) : route.name === 'decision' ? (
-          /* Route: Single Stored Decision Detail */
-          <DecisionDetail
-            state={decisionState}
-            onBack={() => navigate({ name: 'decisions' })}
-          />
-        ) : viewMode === 'home' ? (
-          /* View: Landing Home Experience */
-          <LandingHome
-            onStartNewDecision={handleStartNewDecision}
-            onStartDemoDecision={handleStartDemoDecision}
-            onOpenStoredDecision={(id) => navigate({ name: 'decision', id })}
-          />
-        ) : runResult?.kind === 'FAILED' ? (
-          <FailureView
-            failure={runResult}
-            onRetry={handleStartNewDecision}
-            onBackToWorkspace={() => setViewMode('journey')}
-          />
-        ) : runResult?.kind === 'INSUFFICIENT' ? (
-          <InsufficientView
-            refusal={runResult}
-            onSupplyEvidence={() => setViewMode('journey')}
-          />
-        ) : (
-          /* View: 5-Phase Guided Decision Workflow */
-          <div className="flex-1 flex flex-col lg:flex-row">
-            {/* Left 5-step journey rail */}
-            <JourneyRail
-              currentPhase={currentPhase}
-              completedPhases={completedPhases}
-              onSelectPhase={handleGoToPhase}
-              isDemo={isDemoMode}
-            />
+      {/* Main Workspace Frame */}
+      <div className="flex-1 flex flex-col min-w-0 h-screen overflow-hidden">
+        {/* Top Bar with Breadcrumbs & Actions */}
+        <TopBar
+          breadcrumb={breadcrumb}
+          isDemo={isDemoMode}
+          onExitDemo={handleExitDemo}
+          onOpenSettings={() => setIsSettingsOpen(true)}
+        />
 
-            {/* Main Stage Workspace */}
-            <div className="flex-1 px-4 sm:px-8 py-4 overflow-y-auto">
+        {/* Horizontal Persistent Restrained Stepper (When in Decision Journey) */}
+        {route.name === 'run' && activeNav === 'overview' && viewMode === 'journey' && (
+          <JourneyRail
+            currentPhase={currentPhase}
+            completedPhases={completedPhases}
+            onSelectPhase={handleGoToPhase}
+            isDemo={isDemoMode}
+          />
+        )}
+
+        {/* Scrollable Main Area */}
+        <main className="flex-1 overflow-y-auto bg-[#F7F7F4]">
+          {/* Stored Decisions List */}
+          {route.name === 'decisions' ? (
+            <DecisionsList
+              state={decisionsState}
+              onOpen={(id) => {
+                telemetry.emit('decision_opened', { decisionId });
+                navigate({ name: 'decision', id });
+              }}
+              onStartNew={handleStartNewDecision}
+            />
+          ) : route.name === 'decision' ? (
+            /* Single Stored Decision Detail */
+            <DecisionDetail
+              state={decisionState}
+              onBack={() => navigate({ name: 'decisions' })}
+            />
+          ) : activeNav === 'templates' ? (
+            /* Templates View */
+            <TemplatesView
+              onSelectTemplate={handleSelectTemplate}
+              onBackToOverview={() => {
+                setActiveNav('overview');
+                setViewMode('home');
+              }}
+            />
+          ) : activeNav === 'evidence' ? (
+            /* Evidence Library View */
+            <LibraryView type="evidence" />
+          ) : activeNav === 'claims' ? (
+            /* Claims Library View */
+            <LibraryView
+              type="claims"
+              onSelectClaim={(claim) => setSelectedClaimForDrawer(claim)}
+            />
+          ) : viewMode === 'home' ? (
+            /* SaaS Overview / Home */
+            <LandingHome
+              onStartNewDecision={handleStartNewDecision}
+              onStartDemoDecision={handleStartDemoDecision}
+              onOpenStoredDecision={(id) => navigate({ name: 'decision', id })}
+              onOpenDecisionsList={() => navigate({ name: 'decisions' })}
+            />
+          ) : runResult?.kind === 'FAILED' ? (
+            <FailureView
+              failure={runResult}
+              onRetry={handleStartNewDecision}
+              onBackToWorkspace={() => setViewMode('journey')}
+            />
+          ) : runResult?.kind === 'INSUFFICIENT' ? (
+            <InsufficientView
+              refusal={runResult}
+              onSupplyEvidence={() => setViewMode('journey')}
+            />
+          ) : viewMode === 'results' && runResult?.kind === 'VERDICT' ? (
+            <ResultsView
+              review={runResult.review}
+              provenance={runResult.provenance}
+              onBackToWorkspace={() => setViewMode('journey')}
+              onChallengeDecision={() => handleGoToPhase('CHALLENGE')}
+            />
+          ) : (
+            /* 5-Phase Guided Decision Workflow */
+            <div className="pb-16">
               {currentPhase === 'FRAME' && (
                 <FrameStep
                   context={context}
@@ -447,7 +606,9 @@ export default function App() {
                   decisionQuestion={decisionQuestion}
                   questionRationale={questionRationale}
                   isQuestionConfirmed={isQuestionConfirmed}
-                  onChangeContext={(updates) => setContext((prev) => ({ ...prev, ...updates }))}
+                  onChangeContext={(updates) =>
+                    setContext((prev) => ({ ...prev, ...updates }))
+                  }
                   onChangeEvidence={(val) => setRawEvidence(val)}
                   onConfirmQuestion={handleConfirmDecisionQuestion}
                   onLoadDemoEvidence={() => {
@@ -472,6 +633,10 @@ export default function App() {
                     )
                   }
                   onOpenClaimDetail={(c) => setSelectedClaimForDrawer(c)}
+                  onContinueToChallenge={() => {
+                    markPhaseCompleted('GROUND');
+                    handleGoToPhase('CHALLENGE');
+                  }}
                   isDemo={isDemoMode}
                 />
               )}
@@ -487,6 +652,10 @@ export default function App() {
                     setPmResponseText(text);
                   }}
                   onOpenSpecialistDetail={(sp) => setSelectedSpecialistForDrawer(sp)}
+                  onContinueToDecide={() => {
+                    markPhaseCompleted('CHALLENGE');
+                    handleGoToPhase('DECIDE');
+                  }}
                   isDemo={isDemoMode}
                 />
               )}
@@ -497,6 +666,7 @@ export default function App() {
                   finalRationale={finalRationale}
                   onSelectFinalChoice={(ch) => setFinalChoice(ch)}
                   onChangeRationale={(rat) => setFinalRationale(rat)}
+                  onContinueToRecord={handleNextAction}
                   isDemo={isDemoMode}
                 />
               )}
@@ -515,34 +685,27 @@ export default function App() {
                 />
               )}
             </div>
+          )}
+        </main>
 
-            {/* Right Contextual Decision Snapshot */}
-            <DecisionSnapshot
-              decisionQuestion={decisionQuestion}
-              isQuestionConfirmed={isQuestionConfirmed}
-              claims={claims}
-              unknowns={unknowns}
-              specialists={specialists}
-              onOpenClaims={() => {
-                if (claims.length > 0) setSelectedClaimForDrawer(claims[0]);
-              }}
-              onOpenUnknowns={() => handleGoToPhase('GROUND')}
-            />
-          </div>
-        )}
-      </main>
+        {/* Standing Limitations: §53, TR-11: permanent, on every surface, not a modal */}
+        <StandingLimitations />
+      </div>
 
       {/* Persistent Bottom Action Bar (when inside the journey) */}
-      {viewMode === 'journey' && !route.name.startsWith('decision') && (
-        <NextActionBar
-          onBack={handleBackAction}
-          backLabel={currentPhase === 'FRAME' ? 'Exit to Home' : 'Back'}
-          nextLabel={nextConfig.label}
-          onNext={handleNextAction}
-          canNext={nextConfig.canNext}
-          orientationText={nextConfig.orientation}
-        />
-      )}
+      {route.name === 'run' &&
+        activeNav === 'overview' &&
+        viewMode === 'journey' &&
+        (currentPhase === 'GROUND' || currentPhase === 'CHALLENGE' || currentPhase === 'DECIDE') && (
+          <NextActionBar
+            onBack={handleBackAction}
+            backLabel={currentPhase === 'GROUND' ? 'Exit to Frame' : 'Back'}
+            nextLabel={nextConfig.label}
+            onNext={handleNextAction}
+            canNext={nextConfig.canNext}
+            orientationText={nextConfig.orientation}
+          />
+        )}
 
       {/* Progressive Disclosure Drawers */}
       <ClaimDrawer
@@ -559,8 +722,12 @@ export default function App() {
         }}
       />
 
-      {/* Standing Limitations: §53, TR-11: permanent, on every surface, not a modal */}
-      <StandingLimitations />
+      {/* Workspace Settings & Local Storage Modal */}
+      <SettingsModal
+        isOpen={isSettingsOpen}
+        onClose={() => setIsSettingsOpen(false)}
+        onDataDeleted={handleDeleteEverything}
+      />
 
       {/* Upload Privacy Disclosure Modal */}
       {privacyGateOpen && (

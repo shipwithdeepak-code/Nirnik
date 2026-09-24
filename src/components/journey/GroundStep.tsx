@@ -1,17 +1,14 @@
 import React, { useState } from 'react';
 import {
-  HelpCircle,
-  AlertTriangle,
-  CheckCircle2,
-  Lightbulb,
-  FileQuestion,
+  ChevronDown,
+  ChevronUp,
   ChevronRight,
-  Info,
-  Layers,
+  FileText,
+  Bookmark,
+  HelpCircle,
   ArrowRight,
-  Check,
-  X,
   ExternalLink,
+  CheckCircle,
 } from 'lucide-react';
 import type { Claim } from '../../types/claims';
 import type { DemoUnknownItem } from '../../data/demoWorkoutDecision';
@@ -21,6 +18,7 @@ interface GroundStepProps {
   unknowns: DemoUnknownItem[];
   onUpdateUnknown: (unknownId: string, updates: Partial<DemoUnknownItem>) => void;
   onOpenClaimDetail: (claim: Claim) => void;
+  onContinueToChallenge?: () => void;
   isDemo?: boolean;
 }
 
@@ -29,11 +27,15 @@ export const GroundStep: React.FC<GroundStepProps> = ({
   unknowns,
   onUpdateUnknown,
   onOpenClaimDetail,
+  onContinueToChallenge,
   isDemo = false,
 }) => {
-  const [epistemicFilter, setEpistemicFilter] = useState<'ALL' | 'FACT' | 'INFERENCE' | 'ASSUMPTION' | 'UNKNOWN'>('ALL');
-  const [resolvingUnknownId, setResolvingUnknownId] = useState<string | null>(null);
-  const [resolutionText, setResolutionText] = useState('');
+  const [expandedSection, setExpandedSection] = useState<'claims' | 'unknowns' | 'evidence' | null>(
+    'claims'
+  );
+  const [selectedFilter, setSelectedFilter] = useState<
+    'ALL' | 'FACT' | 'INFERENCE' | 'ASSUMPTION' | 'UNKNOWN'
+  >('ALL');
 
   const factsCount = claims.filter((c) => c.epistemicStatus === 'FACT').length;
   const inferencesCount = claims.filter((c) => c.epistemicStatus === 'INFERENCE').length;
@@ -41,350 +43,247 @@ export const GroundStep: React.FC<GroundStepProps> = ({
   const unknownsCount = claims.filter((c) => c.epistemicStatus === 'UNKNOWN').length;
 
   const filteredClaims =
-    epistemicFilter === 'ALL'
+    selectedFilter === 'ALL'
       ? claims
-      : claims.filter((c) => c.epistemicStatus === epistemicFilter);
+      : claims.filter((c) => c.epistemicStatus === selectedFilter);
 
-  const handleMarkAcceptable = (u: DemoUnknownItem) => {
-    onUpdateUnknown(u.id, {
-      status: 'ACCEPTABLE',
-      resolutionNote: 'Accepted as reasonable operational risk for this rollout phase.',
-    });
-  };
-
-  const handleSaveResolution = (id: string) => {
-    if (!resolutionText.trim()) return;
-    onUpdateUnknown(id, {
-      status: 'RESOLVED',
-      resolutionNote: resolutionText.trim(),
-    });
-    setResolvingUnknownId(null);
-    setResolutionText('');
+  // Subtle epistemic pill styling (restrained labels, not giant colorful badges)
+  const getEpistemicPill = (status: string) => {
+    switch (status) {
+      case 'FACT':
+        return (
+          <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[11px] font-medium tracking-wide bg-[#DDEBE4] text-[#174A3A]">
+            FACT
+          </span>
+        );
+      case 'INFERENCE':
+        return (
+          <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[11px] font-medium tracking-wide bg-[#F2F3EF] text-[#626862] border border-[#E5E7E2]">
+            INFERENCE
+          </span>
+        );
+      case 'ASSUMPTION':
+        return (
+          <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[11px] font-medium tracking-wide bg-[#FDF6ED] text-[#A66B16] border border-[#F0DBC0]">
+            ASSUMPTION
+          </span>
+        );
+      case 'UNKNOWN':
+      default:
+        return (
+          <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[11px] font-medium tracking-wide bg-[#FAF0F0] text-[#B54747] border border-[#F4D0D0]">
+            UNKNOWN
+          </span>
+        );
+    }
   };
 
   return (
-    <div className="max-w-4xl mx-auto space-y-8 py-4 sm:py-6">
-      {/* Step Header */}
+    <div className="max-w-3xl mx-auto py-8 sm:py-12 px-4 space-y-8">
+      {/* Step Heading */}
       <div>
-        <div className="flex items-center gap-2 mb-1.5">
-          <span className="text-xs font-mono font-bold px-2 py-0.5 rounded bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/20">
-            PHASE 02 · GROUND
-          </span>
-          {isDemo && (
-            <span className="text-[11px] font-mono text-stone-500">
-              Deterministic Claim Spine
-            </span>
-          )}
-        </div>
-        <h1 className="text-2xl sm:text-3xl font-serif text-stone-900 dark:text-stone-50 font-normal">
-          What does the Jury actually know?
+        <h1 className="text-2xl sm:text-3xl font-semibold tracking-tight text-[#171A18]">
+          What does this decision depend on?
         </h1>
-        <p className="text-sm text-stone-600 dark:text-stone-400 mt-1">
-          Separating verified facts from inferences, load-bearing assumptions, and unanswered unknowns.
+        <p className="mt-2 text-sm text-[#626862] leading-relaxed">
+          Grounding exposes the empirical facts, logical inferences, and unproven assumptions the decision stands on.
         </p>
       </div>
 
-      {/* Epistemic UI: 4 Interactive Filter Cards */}
-      <section className="space-y-3">
-        <div className="flex items-center justify-between">
-          <h2 className="text-xs font-mono uppercase tracking-wider font-semibold text-stone-700 dark:text-stone-300">
-            Epistemic Breakdown
-          </h2>
-          {epistemicFilter !== 'ALL' && (
-            <button
-              type="button"
-              onClick={() => setEpistemicFilter('ALL')}
-              className="text-xs text-stone-500 hover:text-stone-800 dark:hover:text-stone-200 underline"
-            >
-              Show all ({claims.length})
-            </button>
-          )}
-        </div>
-
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-          {/* FACTS */}
-          <button
-            type="button"
-            onClick={() => setEpistemicFilter(epistemicFilter === 'FACT' ? 'ALL' : 'FACT')}
-            className={`p-3.5 rounded-xl border text-left transition-all ${
-              epistemicFilter === 'FACT'
-                ? 'border-emerald-500 bg-emerald-500/10 ring-2 ring-emerald-500/30'
-                : 'border-stone-200 dark:border-stone-800 bg-white dark:bg-stone-900 hover:border-emerald-500/50'
-            }`}
-          >
-            <div className="flex items-center justify-between mb-1">
-              <span className="text-[11px] font-mono font-bold uppercase text-emerald-600 dark:text-emerald-400">
-                FACTS
-              </span>
-              <span className="text-sm font-mono font-bold text-stone-900 dark:text-stone-100">
-                {factsCount}
-              </span>
-            </div>
-            <p className="text-[11px] text-stone-500 dark:text-stone-400 leading-tight">
-              Observable empirical data from logs, surveys, or benchmarks.
-            </p>
-          </button>
-
-          {/* INFERENCES */}
-          <button
-            type="button"
-            onClick={() => setEpistemicFilter(epistemicFilter === 'INFERENCE' ? 'ALL' : 'INFERENCE')}
-            className={`p-3.5 rounded-xl border text-left transition-all ${
-              epistemicFilter === 'INFERENCE'
-                ? 'border-sky-500 bg-sky-500/10 ring-2 ring-sky-500/30'
-                : 'border-stone-200 dark:border-stone-800 bg-white dark:bg-stone-900 hover:border-sky-500/50'
-            }`}
-          >
-            <div className="flex items-center justify-between mb-1">
-              <span className="text-[11px] font-mono font-bold uppercase text-sky-600 dark:text-sky-400">
-                INFERENCES
-              </span>
-              <span className="text-sm font-mono font-bold text-stone-900 dark:text-stone-100">
-                {inferencesCount}
-              </span>
-            </div>
-            <p className="text-[11px] text-stone-500 dark:text-stone-400 leading-tight">
-              Logical deductions derived directly from observed facts.
-            </p>
-          </button>
-
-          {/* ASSUMPTIONS */}
-          <button
-            type="button"
-            onClick={() => setEpistemicFilter(epistemicFilter === 'ASSUMPTION' ? 'ALL' : 'ASSUMPTION')}
-            className={`p-3.5 rounded-xl border text-left transition-all ${
-              epistemicFilter === 'ASSUMPTION'
-                ? 'border-amber-500 bg-amber-500/10 ring-2 ring-amber-500/30'
-                : 'border-stone-200 dark:border-stone-800 bg-white dark:bg-stone-900 hover:border-amber-500/50'
-            }`}
-          >
-            <div className="flex items-center justify-between mb-1">
-              <span className="text-[11px] font-mono font-bold uppercase text-amber-600 dark:text-amber-400">
-                ASSUMPTIONS
-              </span>
-              <span className="text-sm font-mono font-bold text-stone-900 dark:text-stone-100">
-                {assumptionsCount}
-              </span>
-            </div>
-            <p className="text-[11px] text-stone-500 dark:text-stone-400 leading-tight">
-              Unverified beliefs accepted as true for this decision.
-            </p>
-          </button>
-
-          {/* UNKNOWNS */}
-          <button
-            type="button"
-            onClick={() => setEpistemicFilter(epistemicFilter === 'UNKNOWN' ? 'ALL' : 'UNKNOWN')}
-            className={`p-3.5 rounded-xl border text-left transition-all ${
-              epistemicFilter === 'UNKNOWN'
-                ? 'border-purple-500 bg-purple-500/10 ring-2 ring-purple-500/30'
-                : 'border-stone-200 dark:border-stone-800 bg-white dark:bg-stone-900 hover:border-purple-500/50'
-            }`}
-          >
-            <div className="flex items-center justify-between mb-1">
-              <span className="text-[11px] font-mono font-bold uppercase text-purple-600 dark:text-purple-400">
-                UNKNOWNS
-              </span>
-              <span className="text-sm font-mono font-bold text-stone-900 dark:text-stone-100">
-                {unknownsCount}
-              </span>
-            </div>
-            <p className="text-[11px] text-stone-500 dark:text-stone-400 leading-tight">
-              Critical missing information that could reverse the call.
-            </p>
-          </button>
-        </div>
-      </section>
-
-      {/* Claim Spine Section */}
-      <section className="space-y-3">
-        <div className="flex items-center justify-between">
-          <div>
-            <h2 className="text-xs font-mono uppercase tracking-wider font-semibold text-stone-700 dark:text-stone-300">
-              Claim Spine ({filteredClaims.length} Claims)
-            </h2>
-            <p className="text-xs text-stone-500">
-              Every position in Product Jury explicitly cites these addressable claim IDs.
-            </p>
+      {/* Compact Summary Cards (3-column summary) */}
+      <div className="grid grid-cols-3 gap-3">
+        <button
+          type="button"
+          onClick={() =>
+            setExpandedSection(expandedSection === 'evidence' ? null : 'evidence')
+          }
+          className={`p-3.5 rounded-xl border text-left transition-all focus:outline-none focus-visible:ring-2 focus-visible:ring-[#174A3A] ${
+            expandedSection === 'evidence'
+              ? 'bg-[#FFFFFF] border-[#174A3A] shadow-xs'
+              : 'bg-[#FFFFFF] border-[#E5E7E2] hover:border-[#D6D9D2]'
+          }`}
+        >
+          <div className="flex items-center justify-between text-[#8A908A] mb-1">
+            <span className="text-xs font-medium text-[#626862]">Evidence</span>
+            <FileText className="w-3.5 h-3.5" />
           </div>
-          <span className="text-[11px] font-mono text-stone-500 hidden sm:inline">
-            Click any row to inspect citations
-          </span>
-        </div>
+          <div className="text-lg font-semibold text-[#171A18]">12 sources</div>
+          <div className="text-[11px] text-[#8A908A] mt-0.5">3 primary audits</div>
+        </button>
 
-        <div className="space-y-2">
-          {filteredClaims.map((claim) => (
-            <div
-              key={claim.id}
-              onClick={() => onOpenClaimDetail(claim)}
-              className="p-3.5 rounded-xl border border-stone-200 dark:border-stone-800 bg-white dark:bg-stone-900 hover:border-stone-400 dark:hover:border-stone-700 cursor-pointer transition-all flex items-start gap-3 group"
-            >
-              {/* Epistemic Badge */}
-              <div className="pt-0.5 shrink-0">
-                <span
-                  className={`px-2 py-0.5 rounded text-[10px] font-mono font-bold uppercase ${
-                    claim.epistemicStatus === 'FACT'
-                      ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20'
-                      : claim.epistemicStatus === 'INFERENCE'
-                      ? 'bg-sky-500/10 text-sky-600 dark:text-sky-400 border border-sky-500/20'
-                      : claim.epistemicStatus === 'ASSUMPTION'
-                      ? 'bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/20'
-                      : 'bg-purple-500/10 text-purple-600 dark:text-purple-400 border border-purple-500/20'
-                  }`}
-                >
-                  {claim.epistemicStatus}
-                </span>
-              </div>
+        <button
+          type="button"
+          onClick={() =>
+            setExpandedSection(expandedSection === 'claims' ? null : 'claims')
+          }
+          className={`p-3.5 rounded-xl border text-left transition-all focus:outline-none focus-visible:ring-2 focus-visible:ring-[#174A3A] ${
+            expandedSection === 'claims'
+              ? 'bg-[#FFFFFF] border-[#174A3A] shadow-xs'
+              : 'bg-[#FFFFFF] border-[#E5E7E2] hover:border-[#D6D9D2]'
+          }`}
+        >
+          <div className="flex items-center justify-between text-[#8A908A] mb-1">
+            <span className="text-xs font-medium text-[#626862]">Claims</span>
+            <Bookmark className="w-3.5 h-3.5" />
+          </div>
+          <div className="text-lg font-semibold text-[#171A18]">{claims.length || 8} claims</div>
+          <div className="text-[11px] text-[#8A908A] mt-0.5">
+            {factsCount} facts · {assumptionsCount} assumptions
+          </div>
+        </button>
 
-              {/* Text & Claim ID */}
-              <div className="flex-1 min-w-0">
-                <div className="flex items-center gap-2 mb-0.5">
-                  <span className="text-[11px] font-mono font-medium text-stone-400 dark:text-stone-500">
-                    {claim.id}
-                  </span>
-                  {claim.loadBearing === 'LOAD_BEARING' && (
-                    <span className="px-1.5 py-0.2 rounded text-[9px] font-mono uppercase bg-rose-500/10 text-rose-600 dark:text-rose-400 border border-rose-500/20">
-                      Load-bearing
+        <button
+          type="button"
+          onClick={() =>
+            setExpandedSection(expandedSection === 'unknowns' ? null : 'unknowns')
+          }
+          className={`p-3.5 rounded-xl border text-left transition-all focus:outline-none focus-visible:ring-2 focus-visible:ring-[#174A3A] ${
+            expandedSection === 'unknowns'
+              ? 'bg-[#FFFFFF] border-[#174A3A] shadow-xs'
+              : 'bg-[#FFFFFF] border-[#E5E7E2] hover:border-[#D6D9D2]'
+          }`}
+        >
+          <div className="flex items-center justify-between text-[#8A908A] mb-1">
+            <span className="text-xs font-medium text-[#626862]">Unknowns</span>
+            <HelpCircle className="w-3.5 h-3.5" />
+          </div>
+          <div className="text-lg font-semibold text-[#171A18]">
+            {unknowns.length || 3} unresolved
+          </div>
+          <div className="text-[11px] text-[#A66B16] mt-0.5">Require mitigation</div>
+        </button>
+      </div>
+
+      {/* Progressive Disclosure: Section Details */}
+      {expandedSection === 'claims' && (
+        <section className="space-y-4 pt-2">
+          {/* Filter Pills */}
+          <div className="flex flex-wrap items-center justify-between gap-2 pb-1 border-b border-[#E5E7E2]">
+            <span className="text-xs font-medium text-[#171A18]">
+              Claims on the decision
+            </span>
+            <div className="flex items-center gap-1.5 text-xs">
+              {(['ALL', 'FACT', 'INFERENCE', 'ASSUMPTION', 'UNKNOWN'] as const).map(
+                (filter) => (
+                  <button
+                    key={filter}
+                    type="button"
+                    onClick={() => setSelectedFilter(filter)}
+                    className={`px-2 py-0.5 rounded text-[11px] font-medium transition-colors focus:outline-none focus-visible:ring-1 focus-visible:ring-[#174A3A] ${
+                      selectedFilter === filter
+                        ? 'bg-[#174A3A] text-white'
+                        : 'text-[#626862] hover:bg-[#F2F3EF]'
+                    }`}
+                  >
+                    {filter === 'ALL' ? 'All' : filter}
+                  </button>
+                )
+              )}
+            </div>
+          </div>
+
+          {/* Claims List in Natural Language */}
+          <div className="space-y-2">
+            {filteredClaims.map((claim) => (
+              <div
+                key={claim.id}
+                onClick={() => onOpenClaimDetail(claim)}
+                className="p-3.5 rounded-xl border border-[#E5E7E2] bg-[#FFFFFF] hover:border-[#D6D9D2] hover:shadow-2xs transition-all cursor-pointer flex items-start justify-between gap-3 group"
+              >
+                <div className="space-y-1.5 min-w-0">
+                  <div className="flex items-center gap-2">
+                    {getEpistemicPill(claim.epistemicStatus)}
+                    <span className="text-[11px] font-mono text-[#8A908A] opacity-75">
+                      {claim.id}
                     </span>
-                  )}
+                  </div>
+                  <p className="text-xs text-[#171A18] font-normal leading-relaxed">
+                    {claim.text}
+                  </p>
                 </div>
-                <p className="text-xs sm:text-sm text-stone-800 dark:text-stone-200 font-sans leading-relaxed group-hover:text-stone-950 dark:group-hover:text-white transition-colors">
-                  {claim.text}
+                <div className="text-[11px] text-[#8A908A] group-hover:text-[#174A3A] flex items-center gap-1 shrink-0 pt-0.5">
+                  <span className="hidden sm:inline">Provenance</span>
+                  <ChevronRight className="w-3.5 h-3.5" />
+                </div>
+              </div>
+            ))}
+          </div>
+        </section>
+      )}
+
+      {expandedSection === 'unknowns' && (
+        <section className="space-y-3 pt-2">
+          <div className="text-xs font-medium text-[#171A18] pb-1 border-b border-[#E5E7E2]">
+            Unresolved Unknowns & Potential Blocker Items
+          </div>
+          <div className="space-y-2.5">
+            {unknowns.map((item) => (
+              <div
+                key={item.id}
+                className="p-3.5 rounded-xl border border-[#E5E7E2] bg-[#FFFFFF] space-y-2"
+              >
+                <div className="flex items-center justify-between">
+                  <span className="text-[11px] font-mono text-[#A66B16] font-medium">
+                    {item.id}
+                  </span>
+                  <span
+                    className={`text-[11px] px-2 py-0.5 rounded-full font-medium ${
+                      item.status === 'RESOLVED'
+                        ? 'bg-[#DDEBE4] text-[#174A3A]'
+                        : item.status === 'ACCEPTABLE'
+                        ? 'bg-[#F2F3EF] text-[#626862]'
+                        : 'bg-[#FAF0F0] text-[#B54747]'
+                    }`}
+                  >
+                    {item.status}
+                  </span>
+                </div>
+                <p className="text-xs font-medium text-[#171A18]">{item.question}</p>
+                <p className="text-xs text-[#626862] leading-relaxed">
+                  <strong className="text-[#171A18]">Why it matters:</strong> {item.whyItMatters}
                 </p>
               </div>
+            ))}
+          </div>
+        </section>
+      )}
 
-              <ChevronRight className="w-4 h-4 text-stone-400 group-hover:translate-x-0.5 transition-transform shrink-0 mt-1" />
-            </div>
-          ))}
-        </div>
-      </section>
+      {expandedSection === 'evidence' && (
+        <section className="space-y-3 pt-2">
+          <div className="text-xs font-medium text-[#171A18] pb-1 border-b border-[#E5E7E2]">
+            Evidence Repository & Source Dossier
+          </div>
+          <div className="p-4 rounded-xl border border-[#E5E7E2] bg-[#FFFFFF] space-y-3 text-xs text-[#626862]">
+            <p>
+              12 primary empirical artifacts verified against the claim spine, including:
+            </p>
+            <ul className="space-y-1.5 pl-4 list-disc text-[#171A18]">
+              <li>Cohort engagement benchmark (N=4,820 active athletes)</li>
+              <li>LLM hallucination safety log & latency distribution test</li>
+              <li>User opt-in consent telemetry from pilot beta</li>
+              <li>Customer success ticket backlog on workout confusion</li>
+            </ul>
+          </div>
+        </section>
+      )}
 
-      {/* Critical Unknowns Section */}
-      <section className="space-y-4 pt-2">
-        <div>
-          <h2 className="text-xs font-mono uppercase tracking-wider font-semibold text-stone-700 dark:text-stone-300">
-            Critical Unknowns ({unknowns.length})
-          </h2>
-          <p className="text-xs text-stone-500 mt-0.5">
-            What could change this decision if revealed later? Address, accept, or test them before the Jury deliberates.
-          </p>
-        </div>
+      {/* Dominant Next Action */}
+      <div className="pt-6 border-t border-[#E5E7E2] flex items-center justify-between">
+        <p className="text-xs text-[#8A908A]">
+          Step 2 of 5 · Claims and unknowns proceed to Specialist Challenge
+        </p>
 
-        <div className="space-y-3">
-          {unknowns.map((u) => {
-            const isResolved = u.status === 'RESOLVED';
-            const isAcceptable = u.status === 'ACCEPTABLE';
-
-            return (
-              <div
-                key={u.id}
-                className={`p-4 rounded-xl border transition-all ${
-                  isResolved
-                    ? 'border-emerald-500/30 bg-emerald-500/5'
-                    : isAcceptable
-                    ? 'border-sky-500/30 bg-sky-500/5'
-                    : 'border-stone-200 dark:border-stone-800 bg-white dark:bg-stone-900 shadow-sm'
-                }`}
-              >
-                <div className="flex items-start justify-between gap-3 mb-2">
-                  <div className="flex items-center gap-2">
-                    <span className="text-[11px] font-mono font-bold text-stone-400">{u.id}</span>
-                    <span
-                      className={`text-[10px] font-mono font-semibold px-2 py-0.5 rounded ${
-                        isResolved
-                          ? 'bg-emerald-500/15 text-emerald-600 dark:text-emerald-400'
-                          : isAcceptable
-                          ? 'bg-sky-500/15 text-sky-600 dark:text-sky-400'
-                          : 'bg-amber-500/15 text-amber-600 dark:text-amber-400'
-                      }`}
-                    >
-                      {u.status}
-                    </span>
-                  </div>
-                </div>
-
-                <h3 className="text-sm font-semibold text-stone-900 dark:text-stone-100 mb-2">
-                  {u.question}
-                </h3>
-
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs text-stone-600 dark:text-stone-400 mb-3 bg-stone-50/70 dark:bg-stone-800/40 p-3 rounded-lg border border-stone-200/50 dark:border-stone-700/30">
-                  <div>
-                    <span className="font-semibold block text-[10px] font-mono uppercase text-stone-500 mb-0.5">
-                      Why it matters
-                    </span>
-                    <p className="leading-snug">{u.whyItMatters}</p>
-                  </div>
-                  <div>
-                    <span className="font-semibold block text-[10px] font-mono uppercase text-stone-500 mb-0.5">
-                      What would resolve it
-                    </span>
-                    <p className="leading-snug">{u.whatWouldResolveIt}</p>
-                  </div>
-                </div>
-
-                {u.resolutionNote && (
-                  <div className="text-xs p-2.5 rounded bg-stone-100 dark:bg-stone-800 border border-stone-200 dark:border-stone-700 mb-3 text-stone-700 dark:text-stone-300">
-                    <span className="font-semibold">Action taken: </span>
-                    {u.resolutionNote}
-                  </div>
-                )}
-
-                {/* Resolution Actions */}
-                {resolvingUnknownId === u.id ? (
-                  <div className="space-y-2 pt-2 border-t border-stone-200 dark:border-stone-800">
-                    <label className="block text-xs font-medium text-stone-700 dark:text-stone-300">
-                      Add evidence or define validation test:
-                    </label>
-                    <textarea
-                      rows={2}
-                      value={resolutionText}
-                      onChange={(e) => setResolutionText(e.target.value)}
-                      placeholder="e.g. Added a 20% novice volume restriction to our feature spec..."
-                      className="w-full text-xs p-2.5 rounded-lg border border-stone-300 dark:border-stone-700 bg-white dark:bg-stone-800"
-                    />
-                    <div className="flex gap-2 justify-end">
-                      <button
-                        type="button"
-                        onClick={() => setResolvingUnknownId(null)}
-                        className="px-2.5 py-1 text-xs text-stone-500 hover:text-stone-800"
-                      >
-                        Cancel
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => handleSaveResolution(u.id)}
-                        className="px-3 py-1 bg-stone-900 text-white dark:bg-stone-100 dark:text-stone-950 text-xs font-medium rounded-lg"
-                      >
-                        Save
-                      </button>
-                    </div>
-                  </div>
-                ) : (
-                  <div className="flex flex-wrap gap-2 pt-1">
-                    <button
-                      type="button"
-                      onClick={() => handleMarkAcceptable(u)}
-                      className="px-2.5 py-1 rounded text-xs font-medium bg-stone-100 dark:bg-stone-800 hover:bg-stone-200 dark:hover:bg-stone-700 text-stone-700 dark:text-stone-300 transition-colors"
-                    >
-                      Mark acceptable uncertainty
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setResolvingUnknownId(u.id);
-                        setResolutionText(u.resolutionNote || '');
-                      }}
-                      className="px-2.5 py-1 rounded text-xs font-medium border border-stone-300 dark:border-stone-700 hover:bg-stone-100 dark:hover:bg-stone-800 transition-colors"
-                    >
-                      Add evidence / test
-                    </button>
-                  </div>
-                )}
-              </div>
-            );
-          })}
-        </div>
-      </section>
+        {onContinueToChallenge && (
+          <button
+            type="button"
+            onClick={onContinueToChallenge}
+            className="inline-flex items-center gap-2 px-5 py-2.5 rounded-lg text-xs font-semibold text-white bg-[#174A3A] hover:bg-[#10372C] shadow-xs transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-[#174A3A]"
+          >
+            <span>Continue to Challenge</span>
+            <ArrowRight className="w-3.5 h-3.5" />
+          </button>
+        )}
+      </div>
     </div>
   );
 };

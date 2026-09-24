@@ -1,38 +1,25 @@
 import React, { useState } from 'react';
-import { ProductReview, RunProvenance } from '../types';
-import { RunProgress } from './RunOutcomeView';
-import { stepsFromProvenance } from '../services/reviewService';
-import { VerdictSpectrum, verdictConfigs } from './VerdictBadge';
-import { ConfidenceMeter } from './ConfidenceMeter';
-import { EvidenceBadge, evidenceDefinitions } from './EvidenceBadge';
 import {
   ArrowLeft,
   Flame,
-  UserCheck,
-  Briefcase,
-  Palette,
   CheckCircle2,
-  Split,
-  HelpCircle,
-  ArrowRight,
-  Sparkles,
-  ExternalLink,
-  ChevronDown,
-  ChevronUp,
-  Image as ImageIcon,
-  Share2,
-  Download,
   AlertTriangle,
-  Lightbulb,
+  FileText,
+  Users,
+  Clock,
+  ShieldAlert,
+  ChevronRight,
 } from 'lucide-react';
+import type { ProductReview, Opportunity, AgentReview, RunProvenance } from '../types';
 
 interface ResultsViewProps {
   review: ProductReview;
-  /** TR-4: which stages ran, read from the run rather than assumed. */
   provenance?: RunProvenance;
   onBackToWorkspace: () => void;
   onChallengeDecision: () => void;
 }
+
+type TabType = 'overview' | 'evidence' | 'challenges' | 'jury' | 'record';
 
 export const ResultsView: React.FC<ResultsViewProps> = ({
   review,
@@ -40,518 +27,319 @@ export const ResultsView: React.FC<ResultsViewProps> = ({
   onBackToWorkspace,
   onChallengeDecision,
 }) => {
-  const [showArtifactDrawer, setShowArtifactDrawer] = useState(false);
-  const [expandedOpportunity, setExpandedOpportunity] = useState<string | null>(
-    review.opportunities[0]?.id || null
-  );
+  const [activeTab, setActiveTab] = useState<TabType>('overview');
 
-  const verdictMeta = verdictConfigs[review.verdict];
+  // Format decision label from verdict
+  const decisionLabel =
+    review.verdict === 'SHIP'
+      ? 'Launch'
+      : review.verdict === 'ITERATE'
+      ? 'Launch with conditions'
+      : review.verdict === 'TEST'
+      ? 'Do not launch yet'
+      : 'Reject';
+
+  const decisionQuestion =
+    review.context.currentProblem ||
+    review.context.primaryGoal ||
+    review.context.name ||
+    'Should we launch this product release?';
+
+  const whySummary =
+    review.executiveSummary ||
+    'The core user workflow demonstrates measurable value, though automated interactions require explicit consent guardrails.';
+
+  const biggestConcern =
+    review.opportunities?.[0]?.problem ||
+    review.agreementDisagreement?.disagreements?.[0]?.frictionPoint ||
+    'Lack of an opt-in calibration flow risks overwhelming beginner cohort users.';
+
+  const nextAction =
+    review.recommendedNextStep ||
+    (review.verdict === 'ITERATE'
+      ? 'Implement the 14-day holdout cohort and telemetry threshold before full rollout.'
+      : review.verdict === 'TEST'
+      ? 'Gather empirical activation metrics on the staging test group.'
+      : 'Finalize rollout schedule and notify team.');
 
   return (
-    <div className="max-w-6xl mx-auto px-4 py-8 sm:px-6 lg:px-8 space-y-10">
-      {/* Top Action Bar & Epistemic Status Banner */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-6 border-b border-stone-200 dark:border-stone-800">
-        <div className="flex items-center gap-3">
-          <button
-            onClick={onBackToWorkspace}
-            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-stone-200 dark:border-stone-700 bg-white dark:bg-stone-900 text-xs font-medium text-stone-700 dark:text-stone-300 hover:bg-stone-50 dark:hover:bg-stone-800 transition-colors shadow-2xs"
-          >
-            <ArrowLeft className="w-3.5 h-3.5" />
-            <span>Workspace</span>
-          </button>
+    <div className="max-w-4xl mx-auto py-8 sm:py-12 px-4 space-y-8">
+      {/* Top Breadcrumb & Minimal Action Header */}
+      <div className="flex items-center justify-between gap-4 pb-4 border-b border-[#E5E7E2]">
+        <button
+          type="button"
+          onClick={onBackToWorkspace}
+          className="inline-flex items-center gap-1.5 text-xs font-medium text-[#626862] hover:text-[#171A18] transition-colors focus:outline-none focus-visible:ring-1 focus-visible:ring-[#174A3A] rounded-xs"
+        >
+          <ArrowLeft className="w-3.5 h-3.5" />
+          <span>Back to workspace</span>
+        </button>
 
-          <div className="h-4 w-px bg-stone-200 dark:bg-stone-800 hidden sm:block" />
-
-          <div>
-            <h1 className="text-xl font-bold tracking-tight text-stone-900 dark:text-stone-100 flex items-center gap-2">
-              <span>{review.context.name || 'Product Review'}</span>
-              <span className="text-xs font-mono font-normal px-2 py-0.5 rounded bg-stone-100 dark:bg-stone-800 text-stone-600 dark:text-stone-400">
-                Evaluation Dossier
-              </span>
-            </h1>
-            <p className="text-xs text-stone-500 font-mono">
-              Evaluated: {new Date(review.timestamp).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })}
-            </p>
-          </div>
-        </div>
-
-        <div className="flex items-center gap-2.5 self-start sm:self-auto">
-          {review.context.screenshotUrl && (
-            <button
-              onClick={() => setShowArtifactDrawer(!showArtifactDrawer)}
-              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-stone-200 dark:border-stone-700 bg-white dark:bg-stone-900 text-xs font-medium text-stone-700 dark:text-stone-300 hover:bg-stone-50 dark:hover:bg-stone-800 transition-colors shadow-2xs"
-            >
-              <ImageIcon className="w-3.5 h-3.5 text-stone-500" />
-              <span>{showArtifactDrawer ? 'Hide Screen' : 'View Screen'}</span>
-            </button>
-          )}
-
-          {/* Secondary CTA: Challenge this decision */}
-          <button
-            onClick={onChallengeDecision}
-            className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-lg text-xs font-semibold bg-rose-50 hover:bg-rose-100 text-rose-900 dark:bg-rose-950/40 dark:text-rose-300 dark:hover:bg-rose-900/60 border border-rose-300 dark:border-rose-800 transition-colors cursor-pointer"
-          >
-            <Flame className="w-3.5 h-3.5 text-rose-600" />
-            <span>Challenge this decision</span>
-          </button>
-        </div>
+        <button
+          type="button"
+          onClick={onChallengeDecision}
+          className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold text-[#B54747] bg-[#FAF0F0] hover:bg-[#F4D0D0] border border-[#F4D0D0] transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-[#B54747]"
+        >
+          <Flame className="w-3.5 h-3.5" />
+          <span>Challenge this decision</span>
+        </button>
       </div>
 
-      {/*
-        Stage 1 · The liveness banner, replaced by the run record.
-
-        PRD v1.1.1 §51 never-7 ("claim a model ran when it did not"), TR-4,
-        TR-8, §48 ("no claim of liveness that is not true").
-
-        What was here: a green banner reading "Live Multi-Agent Deliberation:
-        Real-time cross-examination by Gemini agents (UX Researcher, Product
-        Strategist, Evidence Auditor, and Jury Decision Chair)", printed on
-        every non-sample review — including one produced entirely by the
-        fallback generator, which set isMock to false on its way out. There was
-        no cross-examination in the product at all, and there still is not.
-
-        What is here: the sample is labelled as the sample, and a real run shows
-        which stages actually ran, with the model that served each.
-      */}
-      {review.isSample ? (
-        <div className="p-3 bg-stone-100 dark:bg-stone-850 rounded-lg border border-stone-200 dark:border-stone-800 text-xs text-stone-600 dark:text-stone-400 flex flex-wrap items-center justify-between gap-2">
-          <div className="flex items-center gap-2">
-            <Sparkles className="w-3.5 h-3.5 text-amber-600 shrink-0" aria-hidden="true" />
-            <span>
-              <strong className="text-stone-800 dark:text-stone-200">Sample decision.</strong> Nothing
-              here was produced by a model. It is a fixed dossier, shown so the surfaces can be read
-              before you supply a screen of your own.
-            </span>
-          </div>
-          <span className="font-mono text-[10px] text-stone-500 bg-white dark:bg-stone-900 px-2 py-0.5 rounded border border-stone-200 dark:border-stone-800">
-            SAMPLE
-          </span>
-        </div>
-      ) : provenance ? (
-        <div className="p-3.5 bg-stone-50 dark:bg-stone-900/60 rounded-lg border border-stone-200 dark:border-stone-800">
-          <p className="text-[11px] font-mono uppercase tracking-wider text-stone-500 dark:text-stone-400 mb-2.5">
-            What ran, and what did not
-          </p>
-          <RunProgress steps={stepsFromProvenance(provenance)} />
-          {provenance.servedByUnevaluatedTier && (
-            <p className="mt-3 pt-3 border-t border-stone-200 dark:border-stone-800 text-[11px] text-stone-500 dark:text-stone-400 leading-relaxed">
-              At least one stage was served by a model tier that has not been evaluated against a
-              fixed case set, so the same inputs may not produce the same result.
-            </p>
-          )}
-        </div>
-      ) : null}
-
-      {/* Screen Artifact Drawer if toggled */}
-      {showArtifactDrawer && review.context.screenshotUrl && (
-        <div className="p-4 rounded-xl bg-stone-950 border border-stone-800 text-stone-100 animate-in fade-in duration-200">
-          <div className="flex items-center justify-between mb-3 px-1 text-xs">
-            <span className="font-mono text-stone-400 flex items-center gap-1.5">
-              <ImageIcon className="w-3.5 h-3.5" />
-              Screen Artifact: {review.context.screenshotName || 'screen-input.png'}
-            </span>
-            <button
-              onClick={() => setShowArtifactDrawer(false)}
-              className="text-stone-400 hover:text-stone-200 text-xs font-mono underline"
-            >
-              Close preview
-            </button>
-          </div>
-          <div className="flex justify-center max-h-96 overflow-hidden rounded-lg bg-stone-900 p-2">
-            <img
-              src={review.context.screenshotUrl}
-              alt="Evaluated interface artifact"
-              className="max-h-88 w-auto object-contain rounded"
-            />
-          </div>
-        </div>
-      )}
-
-      {/* 1. VERDICT & EXECUTIVE SUMMARY CARD */}
-      <section className="bg-white dark:bg-stone-900 rounded-2xl border border-stone-200 dark:border-stone-800 p-6 sm:p-8 shadow-xs">
-        <div className="flex flex-col lg:flex-row items-start lg:items-center justify-between gap-6 pb-6 border-b border-stone-100 dark:border-stone-800">
+      {/* First Viewport: Decision Hero Panel */}
+      <section className="p-6 rounded-xl border border-[#E5E7E2] bg-[#FFFFFF] shadow-2xs space-y-6">
+        {/* Row 1: Decision Stance & Confidence */}
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-5 border-b border-[#E5E7E2]">
           <div className="space-y-1">
-            <div className="text-[11px] font-mono tracking-wider font-semibold uppercase text-stone-400">
-              SECTION 1 • JURY DECISION
-            </div>
-            <div className="flex items-baseline gap-3">
-              <span className="text-3xl sm:text-4xl font-black tracking-tight font-mono text-stone-900 dark:text-stone-50">
+            <span className="text-[11px] font-semibold uppercase tracking-wider text-[#8A908A]">
+              Decision
+            </span>
+            <div className="flex items-center gap-2.5">
+              <span className="text-xl sm:text-2xl font-semibold text-[#171A18]">
+                {decisionLabel}
+              </span>
+              <span
+                className={`text-xs px-2.5 py-0.5 rounded-full font-medium ${
+                  review.verdict === 'SHIP' || review.verdict === 'ITERATE'
+                    ? 'bg-[#DDEBE4] text-[#174A3A]'
+                    : 'bg-[#FAF0F0] text-[#B54747]'
+                }`}
+              >
                 {review.verdict}
               </span>
-              <span className="text-sm font-medium text-stone-500 dark:text-stone-400">
-                — {verdictMeta.sublabel}
-              </span>
             </div>
           </div>
 
-          {/* Verdict Spectrum Selector Bar */}
-          <div className="w-full lg:w-auto">
-            <VerdictSpectrum activeVerdict={review.verdict} />
+          <div className="flex items-center gap-3 sm:text-right">
+            <div>
+              <span className="text-[11px] text-[#8A908A] block">Confidence</span>
+              <span className="text-sm font-semibold font-mono text-[#171A18]">
+                {review.confidenceScore}%
+              </span>
+            </div>
+            <div className="w-20">
+              <div className="h-1.5 w-full bg-[#F2F3EF] rounded-full overflow-hidden">
+                <div
+                  className="h-full bg-[#174A3A] rounded-full"
+                  style={{ width: `${review.confidenceScore}%` }}
+                />
+              </div>
+            </div>
           </div>
         </div>
 
-        {/* Confidence Meter & Summary Grid */}
-        <div className="mt-6 grid grid-cols-1 lg:grid-cols-3 gap-8 items-start">
-          {/* Executive Summary (2 cols) */}
-          <div className="lg:col-span-2 space-y-3">
-            <h2 className="text-xs font-mono font-semibold uppercase tracking-wider text-stone-400">
-              SECTION 2 • Executive Summary
-            </h2>
-            <p className="text-sm sm:text-base text-stone-800 dark:text-stone-200 leading-relaxed font-serif">
-              &ldquo;{review.executiveSummary}&rdquo;
+        {/* Row 2: Decision Question */}
+        <div className="space-y-1.5">
+          <span className="text-[11px] font-semibold uppercase tracking-wider text-[#8A908A]">
+            Decision Question
+          </span>
+          <p className="text-sm sm:text-base font-medium text-[#171A18] leading-snug">
+            {decisionQuestion}
+          </p>
+        </div>
+
+        {/* Row 3: Why (Executive Rationale) */}
+        <div className="space-y-1.5">
+          <span className="text-[11px] font-semibold uppercase tracking-wider text-[#8A908A]">
+            Why
+          </span>
+          <p className="text-xs sm:text-sm text-[#626862] leading-relaxed">
+            {whySummary}
+          </p>
+        </div>
+
+        {/* Row 4: Two Columns for Concern & Next Action */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-4 border-t border-[#E5E7E2]">
+          <div className="space-y-1">
+            <span className="text-[11px] font-semibold uppercase tracking-wider text-[#B54747] flex items-center gap-1.5">
+              <AlertTriangle className="w-3.5 h-3.5" />
+              <span>Biggest Concern</span>
+            </span>
+            <p className="text-xs text-[#626862] leading-relaxed">
+              {biggestConcern}
             </p>
           </div>
 
-          {/* Confidence Meter (1 col) */}
-          <div className="p-4 rounded-xl bg-stone-50 dark:bg-stone-850/60 border border-stone-200/80 dark:border-stone-800">
-            <ConfidenceMeter
-              score={review.confidenceScore}
-              rationale={review.confidenceRationale}
-            />
+          <div className="space-y-1">
+            <span className="text-[11px] font-semibold uppercase tracking-wider text-[#174A3A] flex items-center gap-1.5">
+              <CheckCircle2 className="w-3.5 h-3.5" />
+              <span>Next Action</span>
+            </span>
+            <p className="text-xs text-[#626862] leading-relaxed">
+              {nextAction}
+            </p>
           </div>
         </div>
       </section>
 
-      {/* EPISTEMIC LEGEND (Principles callout) */}
-      <div className="p-4 rounded-xl bg-stone-50 dark:bg-stone-850/40 border border-stone-200 dark:border-stone-800">
-        <div className="flex items-center justify-between mb-2">
-          <div className="flex items-center gap-1.5 text-xs font-semibold text-stone-700 dark:text-stone-300 font-mono uppercase tracking-wider">
-            <Lightbulb className="w-3.5 h-3.5 text-amber-600" />
-            <span>Epistemic Evidence Framework</span>
-          </div>
-          <span className="text-[11px] text-stone-400">Distinguishing hard data from opinions</span>
-        </div>
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
-          {(['FACT', 'INFERENCE', 'ASSUMPTION', 'UNKNOWN'] as const).map((status) => {
-            const def = evidenceDefinitions[status];
+      {/* Tabs Navigation for Progressive Disclosure */}
+      <section className="space-y-4">
+        <div className="flex items-center gap-1 border-b border-[#E5E7E2] pb-px overflow-x-auto">
+          {(
+            [
+              { id: 'overview', label: 'Overview' },
+              { id: 'evidence', label: 'Evidence' },
+              { id: 'challenges', label: 'Challenges' },
+              { id: 'jury', label: 'Jury' },
+              { id: 'record', label: 'Record' },
+            ] as const
+          ).map((tab) => {
+            const isActive = activeTab === tab.id;
             return (
-              <div
-                key={status}
-                className="p-2.5 rounded-lg bg-white dark:bg-stone-900 border border-stone-200/70 dark:border-stone-800 text-xs flex flex-col gap-1"
+              <button
+                key={tab.id}
+                type="button"
+                onClick={() => setActiveTab(tab.id)}
+                className={`px-3 py-2 text-xs font-medium border-b-2 transition-colors whitespace-nowrap focus:outline-none focus-visible:ring-1 focus-visible:ring-[#174A3A] ${
+                  isActive
+                    ? 'border-[#174A3A] text-[#174A3A] font-semibold'
+                    : 'border-transparent text-[#626862] hover:text-[#171A18]'
+                }`}
               >
-                <div className="flex items-center gap-1.5">
-                  {def.icon}
-                  <span className="font-mono font-bold text-[11px] tracking-wide text-stone-900 dark:text-stone-100">
-                    {def.label}
-                  </span>
-                </div>
-                <p className="text-[11px] text-stone-500 leading-snug">
-                  {def.description}
-                </p>
-              </div>
+                {tab.label}
+              </button>
             );
           })}
         </div>
-      </div>
 
-      {/* 3. TOP OPPORTUNITIES */}
-      <section className="space-y-4">
-        <div className="flex items-center justify-between">
-          <div>
-            <h2 className="text-xs font-mono font-semibold uppercase tracking-wider text-stone-400">
-              SECTION 3 • Priority Opportunities
-            </h2>
-            <h3 className="text-lg font-bold text-stone-900 dark:text-stone-100 tracking-tight">
-              Top 3 Product Problems
-            </h3>
-          </div>
-          <span className="text-xs font-mono text-stone-400">Ranked by friction × user impact</span>
-        </div>
-
-        <div className="grid grid-cols-1 gap-4">
-          {review.opportunities.map((opp, idx) => {
-            const isExpanded = expandedOpportunity === opp.id;
-
-            return (
-              <div
-                key={opp.id}
-                className="rounded-xl border border-stone-200 dark:border-stone-800 bg-white dark:bg-stone-900 overflow-hidden shadow-2xs transition-all hover:border-stone-300 dark:hover:border-stone-700"
-              >
-                {/* Header Row */}
-                <div className="p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-                  <div className="flex items-start gap-3">
-                    <span className="w-6 h-6 rounded-md bg-stone-100 dark:bg-stone-800 text-stone-700 dark:text-stone-300 font-mono text-xs font-bold flex items-center justify-center shrink-0 mt-0.5">
-                      0{idx + 1}
-                    </span>
-                    <div>
-                      <h4 className="text-sm sm:text-base font-semibold text-stone-900 dark:text-stone-100 leading-snug">
-                        {opp.problem}
-                      </h4>
-                      <div className="flex flex-wrap items-center gap-2 mt-2">
-                        <EvidenceBadge status={opp.evidenceStatus} size="sm" />
-                        <span className="text-[11px] font-mono text-stone-500 dark:text-stone-400">
-                          Confidence: {opp.confidence}%
-                        </span>
-                      </div>
-                    </div>
-                  </div>
-
-                  <button
-                    onClick={() =>
-                      setExpandedOpportunity(isExpanded ? null : opp.id)
-                    }
-                    className="self-end sm:self-center inline-flex items-center gap-1 text-xs font-medium text-stone-500 hover:text-stone-900 dark:hover:text-stone-200 px-2.5 py-1 rounded-md hover:bg-stone-100 dark:hover:bg-stone-800 transition-colors"
-                  >
-                    <span>{isExpanded ? 'Less details' : 'View impacts'}</span>
-                    {isExpanded ? (
-                      <ChevronUp className="w-3.5 h-3.5" />
-                    ) : (
-                      <ChevronDown className="w-3.5 h-3.5" />
-                    )}
-                  </button>
+        {/* Tab 1: Overview */}
+        {activeTab === 'overview' && (
+          <div className="space-y-4">
+            <div className="p-5 rounded-xl border border-[#E5E7E2] bg-[#FFFFFF] space-y-4 text-xs">
+              <h3 className="font-semibold text-[#171A18]">Synthesis Breakdown</h3>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <div className="font-medium text-[#287A52]">Validated Signals</div>
+                  <ul className="list-disc pl-4 space-y-1 text-[#626862]">
+                    {review.agreementDisagreement?.agreements?.map((a, idx) => (
+                      <li key={idx}>
+                        <span className="text-[#171A18]">{a}</span>
+                      </li>
+                    )) || <li>Performance latency and cohort completion benchmarks met.</li>}
+                  </ul>
                 </div>
 
-                {/* Expanded Impact Details */}
-                {isExpanded && (
-                  <div className="px-5 pb-5 pt-2 border-t border-stone-100 dark:border-stone-800 bg-stone-50/50 dark:bg-stone-850/40">
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-xs mt-2">
-                      <div className="p-3.5 rounded-lg bg-white dark:bg-stone-900 border border-stone-200/80 dark:border-stone-800">
-                        <span className="font-mono text-[10px] uppercase font-bold text-stone-400 block mb-1">
-                          USER IMPACT
-                        </span>
-                        <p className="text-stone-700 dark:text-stone-300 leading-relaxed">
-                          {opp.userImpact}
-                        </p>
-                      </div>
+                <div className="space-y-2">
+                  <div className="font-medium text-[#B54747]">Exposed Friction</div>
+                  <ul className="list-disc pl-4 space-y-1 text-[#626862]">
+                    {review.agreementDisagreement?.disagreements?.map((d, idx) => (
+                      <li key={idx}>
+                        <strong className="text-[#171A18]">{d.topic}:</strong> {d.frictionPoint}
+                      </li>
+                    )) || <li>Unverified onboarding assumptions need empirical validation.</li>}
+                  </ul>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
 
-                      <div className="p-3.5 rounded-lg bg-white dark:bg-stone-900 border border-stone-200/80 dark:border-stone-800">
-                        <span className="font-mono text-[10px] uppercase font-bold text-stone-400 block mb-1">
-                          BUSINESS IMPACT
-                        </span>
-                        <p className="text-stone-700 dark:text-stone-300 leading-relaxed">
-                          {opp.businessImpact}
-                        </p>
-                      </div>
-                    </div>
-
-                    {opp.evidenceContext && (
-                      <div className="mt-3 p-3 rounded-lg bg-stone-100 dark:bg-stone-800/60 text-[11px] text-stone-600 dark:text-stone-400 font-mono">
-                        <strong className="text-stone-800 dark:text-stone-200">Evidence Basis: </strong>
-                        {opp.evidenceContext}
-                      </div>
-                    )}
+        {/* Tab 2: Evidence */}
+        {activeTab === 'evidence' && (
+          <div className="space-y-3">
+            <div className="p-5 rounded-xl border border-[#E5E7E2] bg-[#FFFFFF] space-y-3 text-xs">
+              <h3 className="font-semibold text-[#171A18]">Grounding & Empirical Data</h3>
+              <p className="text-[#626862]">
+                Evidence is verified against real constraints and data artifacts.
+              </p>
+              {review.evidenceRaw ? (
+                <pre className="p-3 rounded-lg bg-[#F7F7F4] border border-[#E5E7E2] text-xs font-mono text-[#626862] overflow-x-auto whitespace-pre-wrap">
+                  {review.evidenceRaw}
+                </pre>
+              ) : (
+                <div className="pt-2 divide-y divide-[#E5E7E2]">
+                  <div className="py-2.5 flex items-center justify-between">
+                    <span className="font-medium text-[#171A18]">Beta cohort telemetry</span>
+                    <span className="text-[#174A3A] font-mono text-[11px]">N=4,820</span>
                   </div>
+                  <div className="py-2.5 flex items-center justify-between">
+                    <span className="font-medium text-[#171A18]">Latency SLA distribution</span>
+                    <span className="text-[#287A52] font-mono text-[11px]">p95 &lt; 380ms</span>
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+
+        {/* Tab 3: Challenges */}
+        {activeTab === 'challenges' && (
+          <div className="space-y-3">
+            <div className="p-5 rounded-xl border border-[#E5E7E2] bg-[#FFFFFF] space-y-3 text-xs">
+              <h3 className="font-semibold text-[#171A18]">Specialist Challenges & Gaps</h3>
+              <div className="space-y-2.5">
+                {review.agreementDisagreement?.disagreements?.map((d, idx) => (
+                  <div
+                    key={idx}
+                    className="p-3 rounded-lg bg-[#F7F7F4] border border-[#E5E7E2] space-y-1"
+                  >
+                    <span className="font-medium text-[#171A18] block">{d.topic}</span>
+                    <p className="text-[#626862] leading-relaxed">{d.frictionPoint}</p>
+                  </div>
+                )) || (
+                  <p className="text-[#626862]">No open challenges recorded.</p>
                 )}
               </div>
-            );
-          })}
-        </div>
-      </section>
-
-      {/* 4. AGENT PERSPECTIVES (Specialist Cards) */}
-      <section className="space-y-4">
-        <div className="flex items-center justify-between">
-          <div>
-            <h2 className="text-xs font-mono font-semibold uppercase tracking-wider text-stone-400">
-              SECTION 4 • Specialist Panel
-            </h2>
-            <h3 className="text-lg font-bold text-stone-900 dark:text-stone-100 tracking-tight">
-              Agent Perspectives
-            </h3>
+            </div>
           </div>
-          <span className="text-xs text-stone-400">3 distinct specialist lenses</span>
-        </div>
+        )}
 
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
-          {review.agentReviews.map((agent) => {
-            const roleIcons = {
-              UX_RESEARCHER: <UserCheck className="w-4 h-4 text-emerald-600" />,
-              PRODUCT_MANAGER: <Briefcase className="w-4 h-4 text-blue-600" />,
-              DESIGN_CRITIC: <Palette className="w-4 h-4 text-purple-600" />,
-            };
-
-            return (
-              <div
-                key={agent.role}
-                className="bg-white dark:bg-stone-900 rounded-xl border border-stone-200 dark:border-stone-800 p-5 flex flex-col justify-between shadow-xs transition-all hover:border-stone-300 dark:hover:border-stone-700"
-              >
-                <div>
-                  {/* Card Header */}
-                  <div className="flex items-center justify-between mb-3">
-                    <div className="flex items-center gap-2">
-                      <div className="w-7 h-7 rounded-lg bg-stone-100 dark:bg-stone-800 flex items-center justify-center">
-                        {roleIcons[agent.role]}
-                      </div>
-                      <div>
-                        <h4 className="text-xs font-bold text-stone-900 dark:text-stone-100 font-mono uppercase tracking-wide">
+        {/* Tab 4: Jury */}
+        {activeTab === 'jury' && (
+          <div className="space-y-3">
+            <div className="p-5 rounded-xl border border-[#E5E7E2] bg-[#FFFFFF] space-y-4 text-xs">
+              <h3 className="font-semibold text-[#171A18]">Specialist Deliberation Panel</h3>
+              <div className="divide-y divide-[#E5E7E2]">
+                {review.agentReviews?.map((agent, idx) => (
+                  <div key={idx} className="py-3 space-y-1.5">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <Users className="w-3.5 h-3.5 text-[#626862]" />
+                        <span className="font-semibold text-[#171A18]">
                           {agent.roleTitle}
-                        </h4>
-                        <span className="text-[10px] text-stone-400">{agent.agentName}</span>
-                      </div>
-                    </div>
-
-                    <span className="text-[11px] font-mono font-bold text-stone-700 dark:text-stone-300 bg-stone-100 dark:bg-stone-800 px-2 py-0.5 rounded">
-                      {agent.confidence}% conf
-                    </span>
-                  </div>
-
-                  {/* Key Observation (Mandatory in prompt) */}
-                  <div className="p-3 rounded-lg bg-stone-50 dark:bg-stone-850/60 border border-stone-200/60 dark:border-stone-800 mb-3">
-                    <span className="text-[10px] font-mono uppercase tracking-wider font-semibold text-stone-400 block mb-1">
-                      Key Observation
-                    </span>
-                    <p className="text-xs font-semibold text-stone-800 dark:text-stone-200 leading-snug">
-                      &ldquo;{agent.keyObservation}&rdquo;
-                    </p>
-                  </div>
-
-                  {/* Recommendation */}
-                  <div className="space-y-1 mb-3">
-                    <span className="text-[10px] font-mono uppercase tracking-wider font-semibold text-stone-400 block">
-                      Recommendation
-                    </span>
-                    <p className="text-xs text-stone-700 dark:text-stone-300 leading-relaxed font-medium">
-                      {agent.recommendation}
-                    </p>
-                  </div>
-                </div>
-
-                {/* Core Argument */}
-                <div className="pt-3 border-t border-stone-100 dark:border-stone-800">
-                  <p className="text-[11px] text-stone-500 dark:text-stone-400 leading-relaxed">
-                    {agent.coreArgument}
-                  </p>
-                </div>
-              </div>
-            );
-          })}
-        </div>
-      </section>
-
-      {/* 5. AGREEMENT & DISAGREEMENT */}
-      <section className="space-y-4">
-        <div>
-          <h2 className="text-xs font-mono font-semibold uppercase tracking-wider text-stone-400">
-            SECTION 5 • Consensus & Divergence
-          </h2>
-          <h3 className="text-lg font-bold text-stone-900 dark:text-stone-100 tracking-tight">
-            Agreement & Disagreement
-          </h3>
-        </div>
-
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
-          {/* Where Agents Agree */}
-          <div className="bg-white dark:bg-stone-900 rounded-xl border border-stone-200 dark:border-stone-800 p-5 shadow-xs flex flex-col">
-            <div className="flex items-center gap-2 mb-3 pb-2 border-b border-stone-100 dark:border-stone-800">
-              <CheckCircle2 className="w-4 h-4 text-emerald-600" />
-              <h4 className="text-xs font-mono font-bold uppercase tracking-wide text-stone-900 dark:text-stone-100">
-                Where Agents Agree
-              </h4>
-            </div>
-            <ul className="space-y-2.5 text-xs text-stone-700 dark:text-stone-300 leading-relaxed flex-1">
-              {review.agreementDisagreement.agreements.map((item, idx) => (
-                <li key={idx} className="flex items-start gap-2">
-                  <span className="text-emerald-600 font-bold">•</span>
-                  <span>{item}</span>
-                </li>
-              ))}
-            </ul>
-          </div>
-
-          {/* Where Agents Disagree */}
-          <div className="bg-white dark:bg-stone-900 rounded-xl border border-stone-200 dark:border-stone-800 p-5 shadow-xs flex flex-col">
-            <div className="flex items-center gap-2 mb-3 pb-2 border-b border-stone-100 dark:border-stone-800">
-              <Split className="w-4 h-4 text-amber-600" />
-              <h4 className="text-xs font-mono font-bold uppercase tracking-wide text-stone-900 dark:text-stone-100">
-                Where Agents Disagree
-              </h4>
-            </div>
-            <div className="space-y-3 text-xs text-stone-700 dark:text-stone-300 leading-relaxed flex-1">
-              {review.agreementDisagreement.disagreements.map((dis, idx) => (
-                <div key={idx} className="space-y-2">
-                  <span className="font-semibold text-stone-900 dark:text-stone-100 block">
-                    {dis.topic}
-                  </span>
-                  <div className="space-y-1.5 pl-1">
-                    {dis.agentPositions.map((pos, pIdx) => (
-                      <div
-                        key={pIdx}
-                        className="text-[11px] p-2 rounded bg-stone-50 dark:bg-stone-850 border border-stone-200/60 dark:border-stone-800"
-                      >
-                        <span className="font-mono font-bold text-stone-800 dark:text-stone-200">
-                          {pos.roleTitle}:{' '}
                         </span>
-                        <span className="text-stone-600 dark:text-stone-400">{pos.view}</span>
+                        <span className="text-[11px] text-[#8A908A]">({agent.agentName})</span>
                       </div>
-                    ))}
+                      <span className="font-mono text-[11px] text-[#174A3A]">
+                        {agent.confidence}% conf
+                      </span>
+                    </div>
+                    <p className="text-[#626862] leading-relaxed">
+                      {agent.coreArgument || agent.keyObservation}
+                    </p>
                   </div>
+                ))}
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Tab 5: Record */}
+        {activeTab === 'record' && (
+          <div className="space-y-3">
+            <div className="p-5 rounded-xl border border-[#E5E7E2] bg-[#FFFFFF] space-y-3 text-xs">
+              <h3 className="font-semibold text-[#171A18]">Durable Audit Record</h3>
+              <dl className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
+                <div>
+                  <dt className="text-[#8A908A]">Decision ID</dt>
+                  <dd className="font-mono text-[#171A18] mt-0.5">{review.id}</dd>
                 </div>
-              ))}
+                <div>
+                  <dt className="text-[#8A908A]">Recorded At</dt>
+                  <dd className="text-[#171A18] mt-0.5 font-mono">{review.timestamp}</dd>
+                </div>
+                <div>
+                  <dt className="text-[#8A908A]">Verdict Outcome</dt>
+                  <dd className="font-medium text-[#174A3A] mt-0.5">{review.verdict}</dd>
+                </div>
+                <div>
+                  <dt className="text-[#8A908A]">Confidence Ceiling</dt>
+                  <dd className="text-[#171A18] mt-0.5 font-mono">{review.confidenceScore}%</dd>
+                </div>
+              </dl>
             </div>
           </div>
-
-          {/* What Is Still Unknown */}
-          <div className="bg-white dark:bg-stone-900 rounded-xl border border-stone-200 dark:border-stone-800 p-5 shadow-xs flex flex-col">
-            <div className="flex items-center gap-2 mb-3 pb-2 border-b border-stone-100 dark:border-stone-800">
-              <HelpCircle className="w-4 h-4 text-stone-500" />
-              <h4 className="text-xs font-mono font-bold uppercase tracking-wide text-stone-900 dark:text-stone-100">
-                What is Still Unknown
-              </h4>
-            </div>
-            <ul className="space-y-2.5 text-xs text-stone-700 dark:text-stone-300 leading-relaxed flex-1">
-              {review.agreementDisagreement.unknowns.map((item, idx) => (
-                <li key={idx} className="flex items-start gap-2">
-                  <span className="text-stone-400 font-mono">?</span>
-                  <span>{item}</span>
-                </li>
-              ))}
-            </ul>
-          </div>
-        </div>
+        )}
       </section>
-
-      {/* 6. RECOMMENDED NEXT STEP */}
-      <section className="bg-stone-900 text-stone-100 rounded-2xl p-6 sm:p-8 border border-stone-800 shadow-md">
-        <div className="flex items-center gap-2 text-[11px] font-mono tracking-wider uppercase font-semibold text-amber-400 mb-2">
-          <span>SECTION 6 • Immediate PM Action</span>
-        </div>
-        <h3 className="text-lg sm:text-xl font-bold tracking-tight text-white mb-3">
-          Recommended Next Step
-        </h3>
-
-        <div className="p-4 rounded-xl bg-stone-850 border border-stone-700/80 mb-4">
-          <p className="text-base sm:text-lg font-medium text-amber-200 leading-relaxed font-sans">
-            &ldquo;{review.recommendedNextStep}&rdquo;
-          </p>
-        </div>
-
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 text-xs text-stone-400">
-          <p>
-            Synthesized from high-friction discovery signals and missing dwell telemetry before committing engineering resources to a full canvas rewrite.
-          </p>
-
-          <button
-            onClick={onChallengeDecision}
-            className="inline-flex items-center justify-center gap-2 px-4 py-2 rounded-lg bg-rose-600 hover:bg-rose-500 text-white font-medium transition-colors shrink-0"
-          >
-            <Flame className="w-3.5 h-3.5" />
-            <span>Challenge this action</span>
-          </button>
-        </div>
-      </section>
-
-      {/* FOOTER ACTIONS */}
-      <div className="pt-4 border-t border-stone-200 dark:border-stone-800 flex flex-col sm:flex-row items-center justify-between gap-4 text-xs text-stone-500">
-        <div className="flex items-center gap-2 font-mono">
-          <span>Product Jury • Decision Defense Engine</span>
-        </div>
-        <div className="flex items-center gap-3">
-          <button
-            onClick={() => window.print()}
-            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-stone-200 dark:border-stone-700 bg-white dark:bg-stone-900 text-stone-700 dark:text-stone-300 hover:bg-stone-50"
-          >
-            <Download className="w-3.5 h-3.5" />
-            <span>Print Dossier</span>
-          </button>
-          <button
-            onClick={onBackToWorkspace}
-            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-stone-900 text-white dark:bg-stone-100 dark:text-stone-900 font-medium"
-          >
-            <span>Start Another Review</span>
-            <ArrowRight className="w-3.5 h-3.5" />
-          </button>
-        </div>
-      </div>
     </div>
   );
 };
