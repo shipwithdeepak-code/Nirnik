@@ -1,3 +1,6 @@
+import { ClaimSpine } from '../../server/claims/spine';
+import { groundSpecialistPositions } from '../../server/claims/positions';
+import { createDecision, recordOpenLoop } from '../../server/decision/decision';
 import type {
   Claim,
   OpenQuestion,
@@ -38,9 +41,10 @@ export const demoWorkoutRawEvidence = `Evidence Artifacts & Findings:
 const nowIso = '2026-09-24T11:00:00.000Z';
 const runId = 'demo-run-fitpulse-01';
 
-export const demoWorkoutClaims: Claim[] = [
-  {
-    id: 'CLM-wp01-lift',
+function initDemoSpineData() {
+  const spine = new ClaimSpine(runId);
+
+  const liftClaim = spine.add({
     text: 'Beta pilot (n=5,000) demonstrated a 24% higher 30-day workout completion rate for active recommendation adopters.',
     epistemicStatus: 'FACT',
     origin: {
@@ -49,21 +53,11 @@ export const demoWorkoutClaims: Claim[] = [
       runId,
       stage: 'analyst',
     },
-    supports: [
-      {
-        dependantId: 'CLM-wp03-retention',
-        dependantKind: 'CLAIM',
-        stage: 'analyst',
-      },
-    ],
-    loadBearing: 'LOAD_BEARING',
     producedBy: 'analyst',
-    runId,
     createdAt: nowIso,
-    surfaced: true,
-  },
-  {
-    id: 'CLM-wp02-churn',
+  });
+
+  const churnClaim = spine.add({
     text: '41% of churned subscribers cited static, repetitive, or fatigue-mismatched plans as their primary cancellation driver.',
     epistemicStatus: 'FACT',
     origin: {
@@ -72,57 +66,41 @@ export const demoWorkoutClaims: Claim[] = [
       runId,
       stage: 'analyst',
     },
-    supports: [
-      {
-        dependantId: 'CLM-wp03-retention',
-        dependantKind: 'CLAIM',
-        stage: 'analyst',
-      },
-    ],
-    loadBearing: 'LOAD_BEARING',
     producedBy: 'analyst',
-    runId,
     createdAt: nowIso,
-    surfaced: true,
-  },
-  {
-    id: 'CLM-wp03-retention',
+  });
+
+  const retentionClaim = spine.add({
     text: 'Adaptive workout routines will convert early 30-day workout adherence gains into sustained 60-day subscriber retention.',
     epistemicStatus: 'INFERENCE',
     origin: {
       kind: 'MODEL_INFERENCE',
       reasoning: 'Correlating 30-day completion lift with historically observed 60-day cohort survival patterns.',
-      derivedFrom: ['CLM-wp01-lift', 'CLM-wp02-churn'],
+      derivedFrom: [liftClaim.id, churnClaim.id],
       runId,
       stage: 'analyst',
     },
-    supports: [],
-    loadBearing: 'LOAD_BEARING',
     producedBy: 'analyst',
-    runId,
+    confidence: 74,
     createdAt: nowIso,
-    surfaced: true,
-  },
-  {
-    id: 'CLM-wp04-strain',
+  });
+
+  const strainClaim = spine.add({
     text: 'Algorithmic biometric strain scoring prevents workout abandonments caused by cumulative overtraining fatigue.',
     epistemicStatus: 'INFERENCE',
     origin: {
       kind: 'MODEL_INFERENCE',
       reasoning: 'Reduced dropout rate on high-strain days when lower volume workouts were suggested.',
-      derivedFrom: ['CLM-wp01-lift'],
+      derivedFrom: [liftClaim.id],
       runId,
       stage: 'analyst',
     },
-    supports: [],
-    loadBearing: 'NOT_LOAD_BEARING',
     producedBy: 'analyst',
-    runId,
+    confidence: 81,
     createdAt: nowIso,
-    surfaced: true,
-  },
-  {
-    id: 'CLM-wp05-scale',
+  });
+
+  const scaleClaim = spine.add({
     text: 'Recommendation generation latency (380ms mean) and cloud inference costs will remain stable under 1.2M concurrent peak evening users.',
     epistemicStatus: 'ASSUMPTION',
     origin: {
@@ -131,15 +109,12 @@ export const demoWorkoutClaims: Claim[] = [
       runId,
       stage: 'analyst',
     },
-    supports: [],
-    loadBearing: 'LOAD_BEARING',
     producedBy: 'analyst',
-    runId,
+    confidence: 65,
     createdAt: nowIso,
-    surfaced: true,
-  },
-  {
-    id: 'CLM-wp06-safety',
+  });
+
+  const safetyClaim = spine.add({
     text: 'Automated intensity guardrails are sufficient to prevent injury without real-time human coach form verification.',
     epistemicStatus: 'ASSUMPTION',
     origin: {
@@ -148,15 +123,12 @@ export const demoWorkoutClaims: Claim[] = [
       runId,
       stage: 'analyst',
     },
-    supports: [],
-    loadBearing: 'LOAD_BEARING',
     producedBy: 'analyst',
-    runId,
+    confidence: 52,
     createdAt: nowIso,
-    surfaced: true,
-  },
-  {
-    id: 'CLM-wp07-novice',
+  });
+
+  const noviceClaim = spine.add({
     text: 'Adherence and injury risk variance between novice beginners versus experienced strength athletes is unquantified.',
     epistemicStatus: 'UNKNOWN',
     origin: {
@@ -165,15 +137,11 @@ export const demoWorkoutClaims: Claim[] = [
       runId,
       stage: 'analyst',
     },
-    supports: [],
-    loadBearing: 'LOAD_BEARING',
     producedBy: 'analyst',
-    runId,
     createdAt: nowIso,
-    surfaced: true,
-  },
-  {
-    id: 'CLM-wp08-novelty',
+  });
+
+  const noveltyClaim = spine.add({
     text: 'Whether initial workout engagement lift will persist beyond 60 days once the novelty effect of AI recommendations wears off.',
     epistemicStatus: 'UNKNOWN',
     origin: {
@@ -182,14 +150,104 @@ export const demoWorkoutClaims: Claim[] = [
       runId,
       stage: 'analyst',
     },
-    supports: [],
-    loadBearing: 'NOT_LOAD_BEARING',
     producedBy: 'analyst',
-    runId,
     createdAt: nowIso,
-    surfaced: true,
-  },
-];
+  });
+
+  spine.addOpenQuestion({
+    claimId: noviceClaim.id,
+    question: 'How dangerous are high-strain recommendations for novice gym-goers?',
+    whyItMatters: '3 reported strains in a small 5,000-user pilot could extrapolate to hundreds of injuries at a 1.2M user scale, threatening brand reputation and app store rating.',
+    decisionImpact: 'high',
+    howToGetIt: 'Tracking a segmented holdout cohort with novice volume limits.',
+    blocks: [safetyClaim.id],
+  });
+
+  spine.addOpenQuestion({
+    claimId: noveltyClaim.id,
+    question: 'Will 30-day adherence gains persist at 90 days or decay as novelty fades?',
+    whyItMatters: 'The subscription economic payback period requires users to stay subscribed past 60 days. An 8-week pilot cannot prove annual recurring value.',
+    decisionImpact: 'medium',
+    howToGetIt: 'Tracking a 12-week holdout cohort or instituting progressive goal adjustments in week 6.',
+    blocks: [retentionClaim.id],
+  });
+
+  const strategyPositions = groundSpecialistPositions(
+    [
+      {
+        position: 'Support with Phased Pilot',
+        reasoning:
+          'The business case rests on converting workout adherence into renewal retention. Citing verified user metrics, the recommendation engine solves a verified user pain. However, rolling out globally without proving 90-day retention leaves the business vulnerable to seasonal churn.',
+        citedClaims: [liftClaim.id, churnClaim.id, retentionClaim.id],
+      },
+    ],
+    spine,
+    'specialist_strategy'
+  );
+
+  const uxPositions = groundSpecialistPositions(
+    [
+      {
+        position: 'Strong Support for Adaptive Plans',
+        reasoning:
+          'Qualitative sentiment from 412 users confirms that feeling understood on low-energy days creates emotional stickiness. Adaptive plans feel like a personal trainer. We must ensure the UI never shames a user for downgrading an assigned workout.',
+        citedClaims: [liftClaim.id, strainClaim.id],
+      },
+    ],
+    spine,
+    'specialist_ux'
+  );
+
+  const auditorPositions = groundSpecialistPositions(
+    [
+      {
+        position: 'Warning: Longitudinal Evidence Gaps',
+        reasoning:
+          'The pilot sample over-indexed on already-motivated daily users. Furthermore, there is zero data on retention past week 8. The claim that 30-day adherence translates into sustained annual retention is currently an ungrounded inference.',
+        citedClaims: [retentionClaim.id, scaleClaim.id, noveltyClaim.id],
+      },
+    ],
+    spine,
+    'auditor'
+  );
+
+  const redTeamPositions = groundSpecialistPositions(
+    [
+      {
+        position: 'Challenge: Liability and Novice Injury Risk',
+        reasoning:
+          'Algorithmic recommendation of high-load compound lifts without real-time form checks or medical clearance is an active liability hazard. The current algorithm does not check user age, historical injury notes, or warm-up adequacy before assigning max effort work.',
+        citedClaims: [safetyClaim.id, noviceClaim.id],
+      },
+    ],
+    spine,
+    'red_team'
+  );
+
+  const positions: SpecialistPosition[] = [
+    ...strategyPositions,
+    ...uxPositions,
+    ...auditorPositions,
+    ...redTeamPositions,
+  ];
+
+  return {
+    spine,
+    liftClaim,
+    churnClaim,
+    retentionClaim,
+    strainClaim,
+    scaleClaim,
+    safetyClaim,
+    noviceClaim,
+    noveltyClaim,
+    positions,
+  };
+}
+
+const demoData = initDemoSpineData();
+
+export const demoWorkoutClaims: Claim[] = demoData.spine.all();
 
 export interface DemoUnknownItem {
   id: string;
@@ -259,8 +317,8 @@ export const demoWorkoutSpecialists: DemoSpecialistDetail[] = [
     keyConcern:
       'The 16.1% completion lift directly addresses our #1 cancellation cause, but a 100% rollout risks novelty decay before monetization payback.',
     reasoning:
-      'The business case rests on converting workout adherence into renewal retention. Citing CLM-wp01-lift and CLM-wp02-churn, the recommendation engine solves a verified user pain. However, rolling out globally without proving 90-day retention leaves the business vulnerable to seasonal churn.',
-    evidenceCitations: ['CLM-wp01-lift', 'CLM-wp02-churn', 'CLM-wp03-retention'],
+      'The business case rests on converting workout adherence into renewal retention. Citing verified user metrics, the recommendation engine solves a verified user pain. However, rolling out globally without proving 90-day retention leaves the business vulnerable to seasonal churn.',
+    evidenceCitations: [demoData.liftClaim.id, demoData.churnClaim.id, demoData.retentionClaim.id],
   },
   {
     id: 'SP-UX',
@@ -273,7 +331,7 @@ export const demoWorkoutSpecialists: DemoSpecialistDetail[] = [
       'Users love adaptive plans, but manual override friction must remain zero when a user is exhausted.',
     reasoning:
       'Qualitative sentiment from 412 users confirms that feeling understood on low-energy days creates emotional stickiness. Adaptive plans feel like a personal trainer. We must ensure the UI never shames a user for downgrading an assigned workout.',
-    evidenceCitations: ['CLM-wp01-lift', 'CLM-wp04-strain'],
+    evidenceCitations: [demoData.liftClaim.id, demoData.strainClaim.id],
   },
   {
     id: 'SP-AUDITOR',
@@ -283,10 +341,10 @@ export const demoWorkoutSpecialists: DemoSpecialistDetail[] = [
     stanceType: 'warning',
     confidence: 68,
     keyConcern:
-      'Assumption CLM-wp05-scale and unknown CLM-wp08-novelty are unverified; the 8-week pilot suffers from survivorship bias.',
+      'Assumption on peak scale and unknown on novelty decay are unverified; the 8-week pilot suffers from survivorship bias.',
     reasoning:
       'The pilot sample over-indexed on already-motivated daily users. Furthermore, there is zero data on retention past week 8. The claim that 30-day adherence translates into sustained annual retention is currently an ungrounded inference.',
-    evidenceCitations: ['CLM-wp03-retention', 'CLM-wp05-scale', 'CLM-wp08-novelty'],
+    evidenceCitations: [demoData.retentionClaim.id, demoData.scaleClaim.id, demoData.noveltyClaim.id],
   },
   {
     id: 'SP-REDTEAM',
@@ -299,7 +357,7 @@ export const demoWorkoutSpecialists: DemoSpecialistDetail[] = [
       'Three injuries in 5,000 users is a 0.06% incident rate; at 1.2M users that represents over 700 potential injuries and severe product liability.',
     reasoning:
       'Algorithmic recommendation of high-load compound lifts without real-time form checks or medical clearance is an active liability hazard. The current algorithm does not check user age, historical injury notes, or warm-up adequacy before assigning max effort work.',
-    evidenceCitations: ['CLM-wp06-safety', 'CLM-wp07-novice'],
+    evidenceCitations: [demoData.safetyClaim.id, demoData.noviceClaim.id],
   },
 ];
 
@@ -414,82 +472,38 @@ export const demoWorkoutDefaultRationale =
   'We will launch AI Workout Recommendations to a 20% opt-in cohort of intermediate and advanced subscribers, enforcing conservative safety volume caps on novice profiles and tracking a 90-day retention holdout group before expanding to full production.';
 
 export function buildDemoSerializedSpine(): SerializedClaimSpine {
-  const openQuestions: OpenQuestion[] = demoWorkoutClaims
-    .filter((c) => c.epistemicStatus === 'UNKNOWN')
-    .map((c, idx) => ({
-      claimId: c.id,
-      question: c.text,
-      whyItMatters: 'Unverified variable in the recommendation decision model.',
-      decisionImpact: (idx === 0 ? 'high' : 'medium') as 'high' | 'medium',
-      blocks: [],
-      status: 'OPEN' as const,
-    }));
-
-  return {
-    version: 1,
-    runId,
-    claims: demoWorkoutClaims,
-    openQuestions,
-  };
+  return demoData.spine.toJSON();
 }
 
 export function buildDemoSpecialistPositions(): SpecialistPosition[] {
-  return [
-    {
-      id: 'POS-STRATEGY',
-      position: 'Support with Phased Pilot',
-      reasoning: demoWorkoutSpecialists[0].reasoning,
-      citedClaims: ['CLM-wp01-lift', 'CLM-wp02-churn', 'CLM-wp03-retention'],
-      producedBy: 'specialist_strategy',
-      runId,
-    },
-    {
-      id: 'POS-UX',
-      position: 'Strong Support for Adaptive Plans',
-      reasoning: demoWorkoutSpecialists[1].reasoning,
-      citedClaims: ['CLM-wp01-lift', 'CLM-wp04-strain'],
-      producedBy: 'specialist_ux',
-      runId,
-    },
-    {
-      id: 'POS-AUDITOR',
-      position: 'Warning: Longitudinal Evidence Gaps',
-      reasoning: demoWorkoutSpecialists[2].reasoning,
-      citedClaims: ['CLM-wp03-retention', 'CLM-wp05-scale', 'CLM-wp08-novelty'],
-      producedBy: 'auditor',
-      runId,
-    },
-    {
-      id: 'POS-REDTEAM',
-      position: 'Challenge: Liability and Novice Injury Risk',
-      reasoning: demoWorkoutSpecialists[3].reasoning,
-      citedClaims: ['CLM-wp06-safety', 'CLM-wp07-novice'],
-      producedBy: 'red_team',
-      runId,
-    },
-  ];
+  return demoData.positions;
 }
 
-export function buildDemoCanonicalDecision(): Decision {
-  const decisionId = 'DEC-fitpulse-demo-workout-01';
-  const versionId = 'VER-fitpulse-demo-workout-01-v1';
+export function buildDemoCanonicalDecision(
+  question: string = DEMO_DECISION_QUESTION,
+  rationale: string = demoWorkoutDefaultRationale,
+  outcomeChoice: string = 'CONDITIONAL'
+): Decision {
+  const outcomeKind =
+    outcomeChoice === 'FULL' || outcomeChoice === 'SHIP'
+      ? 'SHIP'
+      : outcomeChoice === 'PAUSE' || outcomeChoice === 'TEST'
+      ? 'TEST'
+      : outcomeChoice === 'REJECT' || outcomeChoice === 'KILL'
+      ? 'KILL'
+      : 'ITERATE';
 
-  const version: DecisionVersion = {
-    id: versionId,
-    decisionId,
-    versionNumber: 1,
-    createdAt: nowIso,
-    origin: 'pm',
-    trigger: 'initial',
-    decisionQuestion: DEMO_DECISION_QUESTION,
+  const baseDecision = createDecision({
+    decisionQuestion: question,
     successCondition: 'Achieve >=45% 30-day active workout adherence and 0 injury escalations.',
-    claimSpine: buildDemoSerializedSpine(),
-    specialistPositions: buildDemoSpecialistPositions(),
+    claimSpine: demoData.spine.toJSON(),
+    specialistPositions: demoData.positions,
+    outcome: { kind: 'VERDICT' },
     verdict: {
-      outcome: 'ITERATE',
+      outcome: outcomeKind,
       confidence: 84,
       confidenceRationale: demoWorkoutSynthesis.confidenceRationale,
-      executiveSummary: demoWorkoutDefaultRationale,
+      executiveSummary: rationale,
       opportunities: [
         {
           id: 'OPP-01',
@@ -531,38 +545,23 @@ export function buildDemoCanonicalDecision(): Decision {
       totalEstimatedCostCents: 0,
       totalProviderCalls: 7,
     },
-    outcome: { kind: 'VERDICT' },
-  };
-
-  const openLoop: OpenLoop = {
-    id: 'LOOP-fitpulse-retention-01',
-    decisionId,
-    expectedEvidence: '60-day cohort retention data from the 20% phased pilot group.',
-    whyItMatters: 'Confirms whether the 30-day adherence gains yield recurring subscription renewals.',
-    duePoint: '60 days post-pilot launch',
-    bearsOnClaims: ['CLM-wp03-retention', 'CLM-wp08-novelty'],
-    reEvaluateOnArrival: 'Assess whether to expand rollout to 100% of subscribers.',
-    createdBy: 'contract',
-    versionId,
-    createdAt: nowIso,
-    status: 'OPEN',
-  };
-
-  return {
-    id: decisionId,
-    schemaVersion: 1,
-    decisionQuestion: DEMO_DECISION_QUESTION,
-    successCondition: 'Achieve >=45% 30-day active workout adherence and 0 injury escalations.',
-    createdAt: nowIso,
-    updatedAt: nowIso,
-    currentVersionId: versionId,
-    versions: [version],
-    openLoops: [openLoop],
-    eventLog: [
-      { seq: 0, kind: 'decision_created', at: nowIso },
-      { seq: 1, kind: 'question_confirmed', at: nowIso },
-      { seq: 2, kind: 'verdict_issued', at: nowIso, outcome: 'verdict' },
-    ],
+    origin: 'pipeline',
     isSample: true,
-  };
+    clock: () => nowIso,
+  });
+
+  const withLoop = recordOpenLoop(
+    baseDecision,
+    {
+      expectedEvidence: '60-day cohort retention data from the 20% phased pilot group.',
+      whyItMatters: 'Confirms whether the 30-day adherence gains yield recurring subscription renewals.',
+      duePoint: '60 days post-pilot launch',
+      bearsOnClaims: [demoData.retentionClaim.id, demoData.noveltyClaim.id],
+      reEvaluateOnArrival: 'Assess whether to expand rollout to 100% of subscribers.',
+      createdBy: 'contract',
+      clock: () => nowIso,
+    }
+  );
+
+  return withLoop;
 }

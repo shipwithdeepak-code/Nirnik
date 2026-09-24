@@ -1,14 +1,15 @@
 import React, { useState } from 'react';
 import {
-  ChevronDown,
-  ChevronUp,
-  ChevronRight,
   FileText,
   Bookmark,
   HelpCircle,
   ArrowRight,
   ExternalLink,
-  CheckCircle,
+  CheckCircle2,
+  AlertCircle,
+  HelpCircle as QuestionIcon,
+  ShieldCheck,
+  ChevronRight,
 } from 'lucide-react';
 import type { Claim } from '../../types/claims';
 import type { DemoUnknownItem } from '../../data/demoWorkoutDecision';
@@ -30,259 +31,415 @@ export const GroundStep: React.FC<GroundStepProps> = ({
   onContinueToChallenge,
   isDemo = false,
 }) => {
-  const [expandedSection, setExpandedSection] = useState<'claims' | 'unknowns' | 'evidence' | null>(
-    'claims'
-  );
+  const [activeTab, setActiveTab] = useState<'claims' | 'evidence' | 'unknowns'>('claims');
   const [selectedFilter, setSelectedFilter] = useState<
-    'ALL' | 'FACT' | 'INFERENCE' | 'ASSUMPTION' | 'UNKNOWN'
+    'ALL' | 'FACT' | 'INFERENCE' | 'ASSUMPTION'
   >('ALL');
 
   const factsCount = claims.filter((c) => c.epistemicStatus === 'FACT').length;
   const inferencesCount = claims.filter((c) => c.epistemicStatus === 'INFERENCE').length;
   const assumptionsCount = claims.filter((c) => c.epistemicStatus === 'ASSUMPTION').length;
-  const unknownsCount = claims.filter((c) => c.epistemicStatus === 'UNKNOWN').length;
+  const openUnknownsCount = unknowns.filter((u) => u.status === 'OPEN').length;
 
   const filteredClaims =
     selectedFilter === 'ALL'
       ? claims
       : claims.filter((c) => c.epistemicStatus === selectedFilter);
 
-  // Subtle epistemic pill styling (restrained labels, not giant colorful badges)
-  const getEpistemicPill = (status: string) => {
+  const getEpistemicBadge = (status: string) => {
     switch (status) {
       case 'FACT':
         return (
-          <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[11px] font-medium tracking-wide bg-[#DDEBE4] text-[#174A3A]">
-            FACT
+          <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-mono tracking-wide bg-[#DDEBE4] text-[#174A3A]">
+            Observed Fact
           </span>
         );
       case 'INFERENCE':
         return (
-          <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[11px] font-medium tracking-wide bg-[#F2F3EF] text-[#626862] border border-[#E5E7E2]">
-            INFERENCE
+          <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-mono tracking-wide bg-[#F2F2F3] text-[#17191C] border border-[#E8E8EA]">
+            Logical Inference
           </span>
         );
       case 'ASSUMPTION':
-        return (
-          <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[11px] font-medium tracking-wide bg-[#FDF6ED] text-[#A66B16] border border-[#F0DBC0]">
-            ASSUMPTION
-          </span>
-        );
-      case 'UNKNOWN':
       default:
         return (
-          <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[11px] font-medium tracking-wide bg-[#FAF0F0] text-[#B54747] border border-[#F4D0D0]">
-            UNKNOWN
+          <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-mono tracking-wide bg-[#FDF6ED] text-[#A66B16] border border-[#F0DBC0]">
+            Unproven Assumption
           </span>
         );
     }
   };
 
   return (
-    <div className="max-w-3xl mx-auto py-8 sm:py-12 px-4 space-y-8">
+    <div className="max-w-4xl mx-auto py-10 sm:py-16 px-4 sm:px-6 space-y-12">
       {/* Step Heading */}
-      <div>
-        <h1 className="text-2xl sm:text-3xl font-semibold tracking-tight text-[#171A18]">
-          What does this decision depend on?
+      <div className="space-y-3">
+        <div className="inline-flex items-center gap-1.5 px-3 py-0.5 rounded-full bg-[#FAF9F6] border border-[#E8E8EA] text-[10px] font-mono uppercase tracking-widest text-[#777B86]">
+          <span>02 GROUND</span>
+          <span className="text-[#B0B4BC]">·</span>
+          <span>Epistemic Grounding</span>
+        </div>
+        <h1
+          className="text-3xl sm:text-4xl font-normal tracking-tight text-[#17191C]"
+          style={{ fontFamily: "'Instrument Serif', Georgia, serif" }}
+        >
+          Ground the decision
         </h1>
-        <p className="mt-2 text-sm text-[#626862] leading-relaxed">
-          Grounding exposes the empirical facts, logical inferences, and unproven assumptions the decision stands on.
+        <p className="text-sm text-[#626862] leading-relaxed max-w-2xl font-light">
+          What do we actually know? Grounding separates observed evidence from unverified assumptions and explicit unknowns before challenging the logic.
         </p>
       </div>
 
-      {/* Compact Summary Cards (3-column summary) */}
-      <div className="grid grid-cols-3 gap-3">
+      {/* 3 Large Product Artifact Summary Cards */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-3.5">
+        {/* Evidence Artifact */}
         <button
           type="button"
-          onClick={() =>
-            setExpandedSection(expandedSection === 'evidence' ? null : 'evidence')
-          }
-          className={`p-3.5 rounded-xl border text-left transition-all focus:outline-none focus-visible:ring-2 focus-visible:ring-[#174A3A] ${
-            expandedSection === 'evidence'
-              ? 'bg-[#FFFFFF] border-[#174A3A] shadow-xs'
-              : 'bg-[#FFFFFF] border-[#E5E7E2] hover:border-[#D6D9D2]'
+          onClick={() => setActiveTab('evidence')}
+          className={`p-5 rounded-3xl border text-left transition-all cursor-pointer shadow-2xs ${
+            activeTab === 'evidence'
+              ? 'bg-[#FFFFFF] border-[#17191C] ring-1 ring-[#17191C]'
+              : 'bg-[#FFFFFF] border-[#E8E8EA] hover:border-[#D6D9D2]'
           }`}
         >
-          <div className="flex items-center justify-between text-[#8A908A] mb-1">
-            <span className="text-xs font-medium text-[#626862]">Evidence</span>
-            <FileText className="w-3.5 h-3.5" />
+          <div className="flex items-center justify-between text-[#777B86] mb-2">
+            <span className="text-[11px] font-mono uppercase tracking-wider text-[#777B86]">Evidence</span>
+            <FileText className="w-4 h-4" />
           </div>
-          <div className="text-lg font-semibold text-[#171A18]">12 sources</div>
-          <div className="text-[11px] text-[#8A908A] mt-0.5">3 primary audits</div>
+          <div className="text-2xl font-normal text-[#17191C]" style={{ fontFamily: "'Instrument Serif', Georgia, serif" }}>
+            3 primary sources
+          </div>
+          <div className="text-xs text-[#777B86] mt-1">
+            2 supporting · 1 contradictory
+          </div>
         </button>
 
+        {/* Claims Artifact */}
         <button
           type="button"
-          onClick={() =>
-            setExpandedSection(expandedSection === 'claims' ? null : 'claims')
-          }
-          className={`p-3.5 rounded-xl border text-left transition-all focus:outline-none focus-visible:ring-2 focus-visible:ring-[#174A3A] ${
-            expandedSection === 'claims'
-              ? 'bg-[#FFFFFF] border-[#174A3A] shadow-xs'
-              : 'bg-[#FFFFFF] border-[#E5E7E2] hover:border-[#D6D9D2]'
+          onClick={() => setActiveTab('claims')}
+          className={`p-5 rounded-3xl border text-left transition-all cursor-pointer shadow-2xs ${
+            activeTab === 'claims'
+              ? 'bg-[#FFFFFF] border-[#17191C] ring-1 ring-[#17191C]'
+              : 'bg-[#FFFFFF] border-[#E8E8EA] hover:border-[#D6D9D2]'
           }`}
         >
-          <div className="flex items-center justify-between text-[#8A908A] mb-1">
-            <span className="text-xs font-medium text-[#626862]">Claims</span>
-            <Bookmark className="w-3.5 h-3.5" />
+          <div className="flex items-center justify-between text-[#777B86] mb-2">
+            <span className="text-[11px] font-mono uppercase tracking-wider text-[#777B86]">Claims</span>
+            <Bookmark className="w-4 h-4" />
           </div>
-          <div className="text-lg font-semibold text-[#171A18]">{claims.length || 8} claims</div>
-          <div className="text-[11px] text-[#8A908A] mt-0.5">
+          <div className="text-2xl font-normal text-[#17191C]" style={{ fontFamily: "'Instrument Serif', Georgia, serif" }}>
+            {claims.length || 8} material claims
+          </div>
+          <div className="text-xs text-[#777B86] mt-1">
             {factsCount} facts · {assumptionsCount} assumptions
           </div>
         </button>
 
+        {/* Unknowns Artifact */}
         <button
           type="button"
-          onClick={() =>
-            setExpandedSection(expandedSection === 'unknowns' ? null : 'unknowns')
-          }
-          className={`p-3.5 rounded-xl border text-left transition-all focus:outline-none focus-visible:ring-2 focus-visible:ring-[#174A3A] ${
-            expandedSection === 'unknowns'
-              ? 'bg-[#FFFFFF] border-[#174A3A] shadow-xs'
-              : 'bg-[#FFFFFF] border-[#E5E7E2] hover:border-[#D6D9D2]'
+          onClick={() => setActiveTab('unknowns')}
+          className={`p-5 rounded-3xl border text-left transition-all cursor-pointer shadow-2xs ${
+            activeTab === 'unknowns'
+              ? 'bg-[#FFFFFF] border-[#17191C] ring-1 ring-[#17191C]'
+              : 'bg-[#FFFFFF] border-[#E8E8EA] hover:border-[#D6D9D2]'
           }`}
         >
-          <div className="flex items-center justify-between text-[#8A908A] mb-1">
-            <span className="text-xs font-medium text-[#626862]">Unknowns</span>
-            <HelpCircle className="w-3.5 h-3.5" />
+          <div className="flex items-center justify-between text-[#777B86] mb-2">
+            <span className="text-[11px] font-mono uppercase tracking-wider text-[#777B86]">Unknowns</span>
+            <QuestionIcon className="w-4 h-4 text-[#A66B16]" />
           </div>
-          <div className="text-lg font-semibold text-[#171A18]">
-            {unknowns.length || 3} unresolved
+          <div className="text-2xl font-normal text-[#17191C]" style={{ fontFamily: "'Instrument Serif', Georgia, serif" }}>
+            {unknowns.length || 3} critical unknowns
           </div>
-          <div className="text-[11px] text-[#A66B16] mt-0.5">Require mitigation</div>
+          <div className="text-xs text-[#777B86] mt-1">
+            {openUnknownsCount} unmeasured risks
+          </div>
         </button>
       </div>
 
-      {/* Progressive Disclosure: Section Details */}
-      {expandedSection === 'claims' && (
-        <section className="space-y-4 pt-2">
-          {/* Filter Pills */}
-          <div className="flex flex-wrap items-center justify-between gap-2 pb-1 border-b border-[#E5E7E2]">
-            <span className="text-xs font-medium text-[#171A18]">
-              Claims on the decision
-            </span>
-            <div className="flex items-center gap-1.5 text-xs">
-              {(['ALL', 'FACT', 'INFERENCE', 'ASSUMPTION', 'UNKNOWN'] as const).map(
-                (filter) => (
-                  <button
-                    key={filter}
-                    type="button"
-                    onClick={() => setSelectedFilter(filter)}
-                    className={`px-2 py-0.5 rounded text-[11px] font-medium transition-colors focus:outline-none focus-visible:ring-1 focus-visible:ring-[#174A3A] ${
-                      selectedFilter === filter
-                        ? 'bg-[#174A3A] text-white'
-                        : 'text-[#626862] hover:bg-[#F2F3EF]'
-                    }`}
-                  >
-                    {filter === 'ALL' ? 'All' : filter}
-                  </button>
-                )
-              )}
+      {/* DETAILED CONTENT SECTIONS ACCORDING TO ACTIVE TAB */}
+
+      {/* SECTION A: CLAIMS VIEW */}
+      {activeTab === 'claims' && (
+        <div className="space-y-4 pt-2">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-2 border-b border-[#E8E8EA]">
+            <div>
+              <h2 className="text-sm font-semibold text-[#17191C]">
+                Material Claims
+              </h2>
+              <p className="text-xs text-[#777B86]">
+                Human-readable statements with epistemic status and provenance links.
+              </p>
+            </div>
+
+            {/* Filter pills */}
+            <div className="flex items-center gap-1.5">
+              {(['ALL', 'FACT', 'INFERENCE', 'ASSUMPTION'] as const).map((filter) => (
+                <button
+                  key={filter}
+                  type="button"
+                  onClick={() => setSelectedFilter(filter)}
+                  className={`px-2.5 py-1 rounded-full text-[10px] font-mono transition-colors ${
+                    selectedFilter === filter
+                      ? 'bg-[#17191C] text-white font-medium'
+                      : 'bg-[#FFFFFF] border border-[#E8E8EA] text-[#777B86] hover:text-[#17191C]'
+                  }`}
+                >
+                  {filter}
+                </button>
+              ))}
             </div>
           </div>
 
-          {/* Claims List in Natural Language */}
-          <div className="space-y-2">
+          <div className="space-y-3">
             {filteredClaims.map((claim) => (
               <div
                 key={claim.id}
                 onClick={() => onOpenClaimDetail(claim)}
-                className="p-3.5 rounded-xl border border-[#E5E7E2] bg-[#FFFFFF] hover:border-[#D6D9D2] hover:shadow-2xs transition-all cursor-pointer flex items-start justify-between gap-3 group"
+                className="p-5 rounded-3xl bg-[#FFFFFF] border border-[#E8E8EA] hover:border-[#17191C] transition-all cursor-pointer shadow-2xs group space-y-3"
               >
-                <div className="space-y-1.5 min-w-0">
+                <div className="flex items-center justify-between gap-2">
                   <div className="flex items-center gap-2">
-                    {getEpistemicPill(claim.epistemicStatus)}
-                    <span className="text-[11px] font-mono text-[#8A908A] opacity-75">
-                      {claim.id}
-                    </span>
+                    {getEpistemicBadge(claim.epistemicStatus)}
+                    {claim.loadBearing === 'LOAD_BEARING' && (
+                      <span className="px-2 py-0.5 rounded-full text-[10px] font-mono tracking-wide bg-[#FAF0F0] text-[#B54747]">
+                        Load-bearing
+                      </span>
+                    )}
                   </div>
-                  <p className="text-xs text-[#171A18] font-normal leading-relaxed">
-                    {claim.text}
-                  </p>
+                  <span className="text-xs text-[#777B86] group-hover:text-[#17191C] inline-flex items-center gap-1 transition-colors">
+                    <span>Inspect</span>
+                    <ChevronRight className="w-3.5 h-3.5" />
+                  </span>
                 </div>
-                <div className="text-[11px] text-[#8A908A] group-hover:text-[#174A3A] flex items-center gap-1 shrink-0 pt-0.5">
-                  <span className="hidden sm:inline">Provenance</span>
-                  <ChevronRight className="w-3.5 h-3.5" />
+
+                <p className="text-sm sm:text-base font-normal text-[#17191C] leading-relaxed">
+                  {claim.text}
+                </p>
+
+                <div className="flex items-center justify-between text-xs text-[#777B86] pt-2 border-t border-[#F2F2F3] font-mono text-[11px]">
+                  <span>
+                    {claim.origin.kind === 'ARTIFACT'
+                      ? 'Evidence: Telemetry Artifact'
+                      : claim.origin.kind === 'MODEL_INFERENCE'
+                      ? 'Inferred from pilot baseline'
+                      : 'Unverified model assumption'}
+                  </span>
+                  <span>Confidence: {claim.confidence ?? 80}%</span>
                 </div>
               </div>
             ))}
           </div>
-        </section>
+        </div>
       )}
 
-      {expandedSection === 'unknowns' && (
-        <section className="space-y-3 pt-2">
-          <div className="text-xs font-medium text-[#171A18] pb-1 border-b border-[#E5E7E2]">
-            Unresolved Unknowns & Potential Blocker Items
+      {/* SECTION B: EVIDENCE SOURCES VIEW */}
+      {activeTab === 'evidence' && (
+        <div className="space-y-4 pt-2">
+          <div className="pb-2 border-b border-[#E8E8EA]">
+            <h2 className="text-sm font-semibold text-[#17191C]">
+              Evidence Sources
+            </h2>
+            <p className="text-xs text-[#777B86]">
+              Artifacts collected during pilot telemetry, exit interviews, and latency benchmarking.
+            </p>
           </div>
-          <div className="space-y-2.5">
-            {unknowns.map((item) => (
+
+          <div className="space-y-3">
+            <div className="p-5 rounded-3xl bg-[#FFFFFF] border border-[#E8E8EA] space-y-2 shadow-2xs">
+              <div className="flex items-center justify-between text-xs">
+                <span className="px-2 py-0.5 rounded-full text-[10px] font-mono bg-[#DDEBE4] text-[#174A3A]">
+                  Supporting · Empirical
+                </span>
+                <span className="font-mono text-[#777B86] text-[11px]">5,000 users · 8 weeks</span>
+              </div>
+              <h3 className="text-sm font-semibold text-[#17191C]">
+                Beta Pilot Adherence Telemetry
+              </h3>
+              <p className="text-xs text-[#626862] leading-relaxed">
+                Demonstrated a +16.1% net lift in 30-day active workout completion (48.2% vs 32.1% control, p &lt; 0.001).
+              </p>
+            </div>
+
+            <div className="p-5 rounded-3xl bg-[#FFFFFF] border border-[#E8E8EA] space-y-2 shadow-2xs">
+              <div className="flex items-center justify-between text-xs">
+                <span className="px-2 py-0.5 rounded-full text-[10px] font-mono bg-[#DDEBE4] text-[#174A3A]">
+                  Supporting · Qualitative
+                </span>
+                <span className="font-mono text-[#777B86] text-[11px]">n=1,420 members</span>
+              </div>
+              <h3 className="text-sm font-semibold text-[#17191C]">
+                Q2 Subscription Exit Survey Logs
+              </h3>
+              <p className="text-xs text-[#626862] leading-relaxed">
+                41% of churned subscribers cite rigid, repetitive, or fatigue-mismatched static routines as their direct cancellation trigger.
+              </p>
+            </div>
+
+            <div className="p-5 rounded-3xl bg-[#FFFFFF] border border-[#E8E8EA] space-y-2 shadow-2xs">
+              <div className="flex items-center justify-between text-xs">
+                <span className="px-2 py-0.5 rounded-full text-[10px] font-mono bg-[#FAF0F0] text-[#B54747]">
+                  Contradictory / Risk
+                </span>
+                <span className="font-mono text-[#777B86] text-[11px]">3 reported incidents</span>
+              </div>
+              <h3 className="text-sm font-semibold text-[#17191C]">
+                Pilot Muscular Strain Incident Reports
+              </h3>
+              <p className="text-xs text-[#626862] leading-relaxed">
+                3 beta participants reported muscular strains when heavy compound barbell movements were recommended after consecutive high-strain training days.
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* SECTION C: UNKNOWN-FIRST INTERACTION */}
+      {activeTab === 'unknowns' && (
+        <div className="space-y-4 pt-2">
+          <div className="pb-2 border-b border-[#E8E8EA]">
+            <h2 className="text-sm font-semibold text-[#17191C]">
+              What Don’t We Know?
+            </h2>
+            <p className="text-xs text-[#626862] leading-relaxed">
+              Explicit uncertainty is a first-class citizen in Nirnik. You can investigate an unknown or consciously choose to leave it unknown before committing.
+            </p>
+          </div>
+
+          <div className="space-y-4">
+            {unknowns.map((u, idx) => (
               <div
-                key={item.id}
-                className="p-3.5 rounded-xl border border-[#E5E7E2] bg-[#FFFFFF] space-y-2"
+                key={u.id}
+                className="p-5 rounded-3xl bg-[#FFFFFF] border border-[#E8E8EA] space-y-4 shadow-2xs"
               >
-                <div className="flex items-center justify-between">
-                  <span className="text-[11px] font-mono text-[#A66B16] font-medium">
-                    {item.id}
+                <div className="flex items-center justify-between text-xs">
+                  <span className="font-mono text-[10px] text-[#777B86]">
+                    0{idx + 1} UNKNOWN
                   </span>
                   <span
-                    className={`text-[11px] px-2 py-0.5 rounded-full font-medium ${
-                      item.status === 'RESOLVED'
-                        ? 'bg-[#DDEBE4] text-[#174A3A]'
-                        : item.status === 'ACCEPTABLE'
-                        ? 'bg-[#F2F3EF] text-[#626862]'
-                        : 'bg-[#FAF0F0] text-[#B54747]'
+                    className={`px-2 py-0.5 rounded-full text-[10px] font-mono ${
+                      u.status === 'ACCEPTABLE'
+                        ? 'bg-[#F2F2F3] text-[#777B86]'
+                        : 'bg-[#FDF6ED] text-[#A66B16]'
                     }`}
                   >
-                    {item.status}
+                    {u.status === 'ACCEPTABLE' ? 'Left as Unknown' : 'Open Unknown'}
                   </span>
                 </div>
-                <p className="text-xs font-medium text-[#171A18]">{item.question}</p>
-                <p className="text-xs text-[#626862] leading-relaxed">
-                  <strong className="text-[#171A18]">Why it matters:</strong> {item.whyItMatters}
-                </p>
+
+                <h3 className="text-base font-semibold text-[#17191C] leading-snug">
+                  {u.question}
+                </h3>
+
+                <div className="text-xs space-y-1.5 text-[#626862] bg-[#FAF9F6] p-3.5 rounded-2xl border border-[#E8E8EA]">
+                  <div>
+                    <span className="font-medium text-[#17191C]">Why it matters: </span>
+                    {u.whyItMatters}
+                  </div>
+                  <div>
+                    <span className="font-medium text-[#17191C]">Current data: </span>
+                    {u.currentEvidence}
+                  </div>
+                </div>
+
+                {/* Real PM Interaction: Investigate or Leave Unknown */}
+                <div className="flex items-center gap-2 pt-1">
+                  <button
+                    type="button"
+                    onClick={() =>
+                      onUpdateUnknown(u.id, {
+                        status: u.status === 'ACCEPTABLE' ? 'OPEN' : 'ACCEPTABLE',
+                        resolutionNote:
+                          u.status === 'ACCEPTABLE'
+                            ? undefined
+                            : 'Acknowledged by PM: Bound risk via 20% opt-in rollout rather than blocking the launch.',
+                      })
+                    }
+                    className={`px-4 py-2 rounded-full text-xs font-medium transition-all ${
+                      u.status === 'ACCEPTABLE'
+                        ? 'bg-[#FAF9F6] text-[#777B86] border border-[#E8E8EA]'
+                        : 'bg-[#FFFFFF] border border-[#E8E8EA] text-[#17191C] hover:bg-[#F2F2F3]'
+                    }`}
+                  >
+                    {u.status === 'ACCEPTABLE' ? 'Reopen Unknown' : 'Leave Unknown'}
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() =>
+                      onUpdateUnknown(u.id, {
+                        status: 'RESOLVED',
+                        resolutionNote: 'Investigated and resolved through holdout guardrails.',
+                      })
+                    }
+                    className="px-4 py-2 rounded-full text-xs font-medium text-white bg-[#17191C] hover:bg-[#2D3139] shadow-2xs transition-all"
+                  >
+                    Investigate & Mitigate
+                  </button>
+                </div>
               </div>
             ))}
           </div>
-        </section>
+        </div>
       )}
 
-      {expandedSection === 'evidence' && (
-        <section className="space-y-3 pt-2">
-          <div className="text-xs font-medium text-[#171A18] pb-1 border-b border-[#E5E7E2]">
-            Evidence Repository & Source Dossier
+      {/* SECTION 10 — SUFFICIENCY GATE */}
+      <div className="p-6 rounded-3xl bg-[#FAF9F6] border border-[#E8E8EA] space-y-5 shadow-2xs">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+          <div className="space-y-1">
+            <span className="text-[10px] font-mono uppercase tracking-widest text-[#777B86]">
+              Sufficiency Gate
+            </span>
+            <h3 className="text-base font-semibold text-[#17191C]">
+              Is there enough evidence to challenge this decision?
+            </h3>
           </div>
-          <div className="p-4 rounded-xl border border-[#E5E7E2] bg-[#FFFFFF] space-y-3 text-xs text-[#626862]">
-            <p>
-              12 primary empirical artifacts verified against the claim spine, including:
-            </p>
-            <ul className="space-y-1.5 pl-4 list-disc text-[#171A18]">
-              <li>Cohort engagement benchmark (N=4,820 active athletes)</li>
-              <li>LLM hallucination safety log & latency distribution test</li>
-              <li>User opt-in consent telemetry from pilot beta</li>
-              <li>Customer success ticket backlog on workout confusion</li>
-            </ul>
+          <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-[#DDEBE4] text-[#174A3A] text-xs font-mono font-medium self-start sm:self-auto">
+            <ShieldCheck className="w-3.5 h-3.5" />
+            <span>Enough to challenge · Not enough to conclude</span>
           </div>
-        </section>
-      )}
+        </div>
 
-      {/* Dominant Next Action */}
-      <div className="pt-6 border-t border-[#E5E7E2] flex items-center justify-between">
-        <p className="text-xs text-[#8A908A]">
-          Step 2 of 5 · Claims and unknowns proceed to Specialist Challenge
+        <p className="text-xs text-[#626862] leading-relaxed">
+          You have enough empirical telemetry to stress-test the proposal against specialist challenge, but not enough longitudinal data to establish causality past 60 days.
         </p>
 
-        {onContinueToChallenge && (
+        {/* Known / Unknown / Limitation Breakdown */}
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 text-xs">
+          <div className="p-3.5 rounded-2xl bg-[#FFFFFF] border border-[#E8E8EA] space-y-1">
+            <span className="text-[10px] font-mono uppercase text-[#174A3A] font-semibold block">Known</span>
+            <span className="text-[#17191C] block leading-snug">
+              +16.1% workout completion lift in 5,000 active beta cohort.
+            </span>
+          </div>
+
+          <div className="p-3.5 rounded-2xl bg-[#FFFFFF] border border-[#E8E8EA] space-y-1">
+            <span className="text-[10px] font-mono uppercase text-[#A66B16] font-semibold block">Unknown</span>
+            <span className="text-[#17191C] block leading-snug">
+              Long-term 90-day retention curve after initial novelty effect fades.
+            </span>
+          </div>
+
+          <div className="p-3.5 rounded-2xl bg-[#FFFFFF] border border-[#E8E8EA] space-y-1">
+            <span className="text-[10px] font-mono uppercase text-[#5D2A1A] font-semibold block">Limitation</span>
+            <span className="text-[#17191C] block leading-snug">
+              Beta pilot over-indexed on daily motivated gymgoers without injury histories.
+            </span>
+          </div>
+        </div>
+
+        {/* Primary CTA */}
+        <div className="pt-2 flex justify-end">
           <button
             type="button"
             onClick={onContinueToChallenge}
-            className="inline-flex items-center gap-2 px-5 py-2.5 rounded-lg text-xs font-semibold text-white bg-[#174A3A] hover:bg-[#10372C] shadow-xs transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-[#174A3A]"
+            className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-7 py-3 rounded-full text-xs font-semibold text-white bg-[#17191C] hover:bg-[#2D3139] shadow-sm transition-all focus:outline-none focus-visible:ring-2 focus-visible:ring-[#17191C] cursor-pointer"
           >
-            <span>Continue to Challenge</span>
-            <ArrowRight className="w-3.5 h-3.5" />
+            <span>Challenge the decision →</span>
           </button>
-        )}
+        </div>
       </div>
     </div>
   );

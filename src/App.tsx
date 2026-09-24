@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
-import { Sidebar, NavItem } from './components/Sidebar';
-import { TopBar } from './components/TopBar';
+import type { NavItem } from './components/Sidebar';
+import { GlobalNav } from './components/GlobalNav';
 import { WorkspaceForm } from './components/WorkspaceForm';
 import { ResultsView } from './components/ResultsView';
 import { AnalysisLoadingModal } from './components/AnalysisLoadingModal';
@@ -337,17 +337,11 @@ export default function App() {
       markPhaseCompleted('CHALLENGE');
       handleGoToPhase('DECIDE');
     } else if (currentPhase === 'DECIDE') {
-      const decisionToSave = buildDemoCanonicalDecision();
-      decisionToSave.decisionQuestion = decisionQuestion || DEMO_DECISION_QUESTION;
-      if (decisionToSave.versions[0]?.verdict) {
-        decisionToSave.versions[0].verdict.executiveSummary = finalRationale;
-        decisionToSave.versions[0].verdict.outcome =
-          finalChoice === 'CONDITIONAL'
-            ? 'ITERATE'
-            : finalChoice === 'FULL'
-            ? 'SHIP'
-            : 'TEST';
-      }
+      const decisionToSave = buildDemoCanonicalDecision(
+        decisionQuestion || DEMO_DECISION_QUESTION,
+        finalRationale || demoWorkoutDefaultRationale,
+        finalChoice
+      );
       void persistDecision(decisionToSave);
       setSavedDecision(decisionToSave);
       markPhaseCompleted('DECIDE');
@@ -488,9 +482,9 @@ export default function App() {
   const breadcrumb = getBreadcrumb();
 
   return (
-    <div className="h-screen w-screen flex overflow-hidden bg-[#F7F7F4] text-[#171A18] font-sans antialiased selection:bg-[#DDEBE4] selection:text-[#174A3A]">
-      {/* SaaS Application Sidebar */}
-      <Sidebar
+    <div className="min-h-screen w-screen flex flex-col bg-[#F7F7F4] text-[#17191C] font-sans antialiased selection:bg-[#FBE1D1] selection:text-[#5D2A1A]">
+      {/* Global Top Navigation */}
+      <GlobalNav
         currentNav={activeNav}
         onSelectNav={(nav) => {
           if (nav === 'settings') {
@@ -507,33 +501,24 @@ export default function App() {
             }
           }
         }}
-        isCollapsed={isSidebarCollapsed}
-        onToggleCollapse={() => setIsSidebarCollapsed(!isSidebarCollapsed)}
         onNewDecision={handleStartNewDecision}
-        onStartDemo={handleStartDemoDecision}
-        isDemoActive={isDemoMode}
+        onOpenSettings={() => setIsSettingsOpen(true)}
+        viewMode={viewMode}
+        currentPhase={currentPhase}
+        completedPhases={completedPhases}
+        onSelectPhase={handleGoToPhase}
+        decisionTitle={decisionQuestion}
+        isDemo={isDemoMode}
+        onExitDemo={handleExitDemo}
+        onBackToHome={() => {
+          setViewMode('home');
+          setActiveNav('overview');
+          navigate({ name: 'run' });
+        }}
       />
 
       {/* Main Workspace Frame */}
-      <div className="flex-1 flex flex-col min-w-0 h-screen overflow-hidden">
-        {/* Top Bar with Breadcrumbs & Actions */}
-        <TopBar
-          breadcrumb={breadcrumb}
-          isDemo={isDemoMode}
-          onExitDemo={handleExitDemo}
-          onOpenSettings={() => setIsSettingsOpen(true)}
-        />
-
-        {/* Horizontal Persistent Restrained Stepper (When in Decision Journey) */}
-        {route.name === 'run' && activeNav === 'overview' && viewMode === 'journey' && (
-          <JourneyRail
-            currentPhase={currentPhase}
-            completedPhases={completedPhases}
-            onSelectPhase={handleGoToPhase}
-            isDemo={isDemoMode}
-          />
-        )}
-
+      <div className="flex-1 flex flex-col min-w-0">
         {/* Scrollable Main Area */}
         <main className="flex-1 overflow-y-auto bg-[#F7F7F4]">
           {/* Stored Decisions List */}
